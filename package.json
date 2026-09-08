@@ -1,0 +1,48 @@
+{
+  "name": "sūtra-ai-agent",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "turbo": "^2.10.12",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "bun",
+      "version": "1.3.0"
+    }
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "author": "Abhishek Jha",
+  "description": "Sūtra is an AI-powered execution platform that turns natural-language intent into reliable, real-world workflows. It connects your tools, understands what needs to happen, makes decisions when things get messy, and executes the work—with visibility and human control when it matters.",
+  "license": "MIT",
+  "keywords": [
+    "ai-agent",
+    "knowledge-management",
+    "semantic-search",
+    "vector-database",
+    "rag",
+    "typescript",
+    "nextjs",
+    "bun",
+    "monorepo",
+    "open-source",
+    "productivity",
+    "research",
+    "knowledge-organization",
+    "agentic-ai"
+  ]
+}
