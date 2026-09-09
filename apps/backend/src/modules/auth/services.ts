@@ -1,15 +1,35 @@
 import type { Request, Response, NextFunction } from "express";
 import axios from "axios";
-import { GOOGLE_CLIENT_ID, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_SECRET } from "../../lib/env";
+import { GOOGLE_CLIENT_ID, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_SECRET } from "../../libs/env";
 import { prisma } from "@sutra/db";
+import { readAuthSession } from "../../libs/session";
 
-export const getUser = (req: Request, res: Response, next: NextFunction) => {
+export const getMe = async (req: Request, res: Response, next: NextFunction) => {
+    const session = readAuthSession(req)
+    if (!session) {
+        res.status(401).json({ message: "Unauthorized" })
+        return
+    }
 
-
-    return res.json({
-        user: req.user
+    const user = await prisma.user.findUnique({
+        where: { id: session.userId }
     })
 
+    if (!user) {
+        res.status(401).json({ message: "Unauthorized" })
+        return
+    }
+
+    res.json({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.avatar,
+        githubInstallationId: user.googleId,
+        accessToken: session.access_token,
+        userId: session.userId,
+        refreshToken: session.refresh_token,
+    })
 }
 
 export const redirectToGoogle = (req: Request, res: Response) => {
