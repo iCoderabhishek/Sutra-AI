@@ -1,5 +1,6 @@
 import express from 'express'
 import dotenv from "dotenv"
+import authRoutes from '../modules/auth/routes'
 
 dotenv.config()
 const app = express()
@@ -12,6 +13,8 @@ app.get("/", (req, res) => {
         "message": "I am alive"
     })
 })
+
+app.use("/api/v1/auth", authRoutes)
 
 
 app.listen(PORT, () => {
