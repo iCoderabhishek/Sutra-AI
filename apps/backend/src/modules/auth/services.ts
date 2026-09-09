@@ -19,7 +19,7 @@ export const redirectToGoogle = (req: Request, res: Response) => {
 export const getGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
 
     const { code } = req.query
-    
+
     if (!code) {
         return res.status(400).json({ error: "Authorization code missing" });
     }
@@ -48,10 +48,13 @@ export const getGoogleCallback = async (req: Request, res: Response, next: NextF
         // save user accesstoken to db
         // todo check whether the user is active or not
 
+        return res.json({
+            message: "Successfully authenticated with Google",
+            user: googleUser.id
+        });
 
     } catch (error) {
         console.log("Error fetching Google user:", error);
-        // res.redirect("/login")
-
+        return res.status(500).json({ error: "Authentication failed" });
     }
 }
