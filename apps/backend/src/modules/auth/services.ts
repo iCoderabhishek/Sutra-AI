@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import axios from "axios";
 import { GOOGLE_CLIENT_ID, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_SECRET } from "../../lib/env";
+import { prisma } from "@sutra/db";
 
 export const getUser = (req: Request, res: Response, next: NextFunction) => {
 
@@ -42,15 +43,23 @@ export const getGoogleCallback = async (req: Request, res: Response, next: NextF
         })
 
 
-        // todo write to save the user to db
-        // if user exists update the user
-        // if user does not exists create the user
-        // save user accesstoken to db
-        // todo check whether the user is active or not
+        // Upsert user to the database
+        const user = await prisma.user.upsert({
+            where: { googleId: googleUser.id },
+            update: {
+                name: googleUser.name,
+                email: googleUser.email,
+            },
+            create: {
+                googleId: googleUser.id,
+                name: googleUser.name,
+                email: googleUser.email,
+            }
+        });
 
         return res.json({
             message: "Successfully authenticated with Google",
-            user: googleUser.id
+            user: user
         });
 
     } catch (error) {

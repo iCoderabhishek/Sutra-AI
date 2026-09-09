@@ -4,15 +4,21 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --watch run src/api/index.ts"
+    "dev": "bun --watch run src/api/index.ts",
+    "db:generate": "cd ../../packages/db && bun db:generate",
+    "db:push": "cd ../../packages/db && bun db:push",
+    "db:migrate": "cd ../../packages/db && bun db:migrate",
+    "db:studio": "cd ../../packages/db && bun db:studio"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "prisma": "^6.0.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@sutra/db": "workspace:*",
     "@types/express": "^5.0.6",
     "axios": "^1.20.0",
     "dotenv": "^17.4.2",
