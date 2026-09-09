@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getUser } from "./services";
+import { getUser, getGoogleCallback } from "./services";
 
 
 const router = Router()
@@ -7,7 +7,7 @@ const router = Router()
 
 
 router.get("/me", getUser)
-
+router.post("/google", getGoogleCallback)
 
 
 
