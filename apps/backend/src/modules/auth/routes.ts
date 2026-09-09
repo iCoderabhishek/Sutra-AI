@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getUser, getGoogleCallback } from "./services";
+import { getUser, getGoogleCallback, redirectToGoogle } from "./services";
 
 
 const router = Router()
@@ -7,7 +7,8 @@ const router = Router()
 
 
 router.get("/me", getUser)
-router.post("/google", getGoogleCallback)
+router.get("/google", redirectToGoogle)
+router.get("/callback", getGoogleCallback)
 
 
 

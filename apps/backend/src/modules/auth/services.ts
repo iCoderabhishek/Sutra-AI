@@ -11,12 +11,21 @@ export const getUser = (req: Request, res: Response, next: NextFunction) => {
 
 }
 
+export const redirectToGoogle = (req: Request, res: Response) => {
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_CALLBACK_URL}&response_type=code&scope=profile email`;
+    res.redirect(url);
+}
 
 export const getGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
 
     const { code } = req.query
+    
+    if (!code) {
+        return res.status(400).json({ error: "Authorization code missing" });
+    }
+
     try {
-        const { data } = await axios.post('<https://oauth2.googleapis.com/token>', {
+        const { data } = await axios.post('https://oauth2.googleapis.com/token', {
             client_id: GOOGLE_CLIENT_ID,
             client_secret: GOOGLE_CLIENT_SECRET,
             code,
@@ -42,7 +51,7 @@ export const getGoogleCallback = async (req: Request, res: Response, next: NextF
 
     } catch (error) {
         console.log("Error fetching Google user:", error);
-        res.redirect("/login")
+        // res.redirect("/login")
 
     }
 }
