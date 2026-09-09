@@ -2,7 +2,7 @@ import express from 'express'
 import dotenv from "dotenv"
 import authRoutes from '../modules/auth/routes'
 import cookieSession from "cookie-session"
-import { SESSION_SECRET } from '../lib/env'
+import { SESSION_SECRET } from '../libs/env'
 
 dotenv.config()
 const app = express()
