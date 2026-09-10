@@ -11,4 +11,10 @@ const AgentSchema = z.object({
     status: z.enum(["ACTIVE", "INACTIVE", "PAUSED"]),
 });
 
+export const PaginationSchema = z.object({
+    page: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).max(100).default(10),
+});
+
+
 export default AgentSchema;
