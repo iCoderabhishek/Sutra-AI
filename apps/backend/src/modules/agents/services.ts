@@ -91,4 +91,24 @@ export const listAgents = async (req: Request, res: Response, next: NextFunction
 };
 
 
-export const getAgent = (req: Request, res: Response, next: NextFunction) => { };
+export const getAgent = async (req: Request, res: Response, next: NextFunction) => {
+
+    const { agentId } = req.params as { agentId: string };
+
+    try {
+        const agent = await prisma.agent.findFirst({
+            where: { id: agentId, userId: req.user.id },
+        });
+
+        if (!agent) {
+            return res.status(404).json({ message: "Agent not found" });
+        }
+
+        return res.status(200).json(agent);
+
+    } catch (error) {
+        console.error(`Failed to get agent with ${agentId}:`, error);
+        return res.status(500).json({ message: "Failed to get agent" });
+    }
+
+};
