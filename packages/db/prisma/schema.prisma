@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// [ ] users table: id, email, name, google_id, created_at
+// [ ] agents table: id, user_id, name, template, config (JSON), schedule, status, created_at
+// [ ] runs table: id, agent_id, status, trace (JSON array), total_cost, total_tokens, started_at, finished_at
+// [ ] credits table: id, user_id, balance, plan, updated_at
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String?
+  googleId  String    @unique
+  avatar    String?
+  agents    Agent[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  credits   Credits[]
+}
+
+enum StatusEnum {
+  ACTIVE
+  INACTIVE
+  PAUSED
+}
+
+model Agent {
+  id          String     @id @default(uuid())
+  name        String
+  desc        String?
+  user        User?      @relation(fields: [userId], references: [id])
+  userId      String?
+  prompt      Json?
+  template    String?
+  instruction Json?
+  tools       String[]
+  schedule    Json?
+  status      StatusEnum @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  jobRuns     JobRun[]
+}
+
+model JobRun {
+  id          String     @id @default(uuid())
+  agent       Agent      @relation(fields: [agentId], references: [id])
+  agentId     String
+  status      StatusEnum
+  trace       Json
+  totalCost   Decimal
+  totalTokens Int
+  startedAt   DateTime
+  finishedAt  DateTime
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Credits {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  balance   Decimal
+  plan      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
