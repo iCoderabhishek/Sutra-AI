@@ -8,12 +8,12 @@ export const scheduleAgent = async (agent: Agent) => {
         const cronPattern = scheduleData.pattern || scheduleData.cron;
 
         if (cronPattern) {
-            await agentQueue.add(
-                "agent-run",
-                { agentId: agent.id },
+            await agentQueue.upsertJobScheduler(
+                `agent-${agent.id}`,
+                { pattern: cronPattern },
                 {
-                    repeat: { pattern: cronPattern },
-                    jobId: `agent-${agent.id}` // Assigns a predictable ID to prevent duplicate schedules
+                    name: "agent-run",
+                    data: { agentId: agent.id }
                 }
             );
             console.log(`Scheduled agent ${agent.id} with pattern ${cronPattern}`);
