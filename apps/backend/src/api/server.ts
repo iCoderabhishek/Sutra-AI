@@ -1,16 +1,15 @@
+import "dotenv/config";
+
 import express from 'express'
-import dotenv from "dotenv"
 import authRoutes from '../modules/auth/routes'
 import cookieSession from "cookie-session"
 import { SESSION_SECRET } from '../libs/env'
 import "../libs/queue";
 import agentRoutes from '../modules/agents/routes'
 
-
-
-dotenv.config()
 const app = express()
 
+app.use(express.json())
 const PORT = process.env.PORT || 8000
 
 app.get("/", (req, res) => {
@@ -19,6 +18,7 @@ app.get("/", (req, res) => {
         "message": "I am alive"
     })
 })
+
 app.use(cookieSession({
     name: 'session',
     keys: [SESSION_SECRET],

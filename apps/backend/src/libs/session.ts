@@ -1,13 +1,11 @@
 import type { Request } from "express"
 
 export const setAuthSession = (req: Request, accessToken: string, userId: string, refreshToken?: string) => {
-    if (req.session) {
-        req.session.access_token = accessToken
-        req.session.userId = userId
-        if (refreshToken) {
-            req.session.refresh_token = refreshToken
-        }
-    }
+    req.session = {
+        access_token: accessToken,
+        userId: userId,
+        ...(refreshToken && { refresh_token: refreshToken })
+    };
 }
 
 export const clearAuthSession = (req: Request) => {
