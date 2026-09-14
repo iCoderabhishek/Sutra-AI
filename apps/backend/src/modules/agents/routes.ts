@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createAgent, getAgent, listAgents } from "./services";
+import { createAgent, getAgent, listAgents, triggerAgent } from "./services";
 import { authMiddleware } from "../auth/middleware";
 
 
@@ -10,3 +10,5 @@ router.post("/", authMiddleware, createAgent);
 router.get("/", authMiddleware, listAgents);
 
 router.get("/:agentId", authMiddleware, getAgent);
+
+router.post("/:agentId/run", authMiddleware, triggerAgent)

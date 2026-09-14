@@ -2,6 +2,7 @@ import { prisma } from "@sutra/db";
 import type { Request, Response, NextFunction } from "express";
 import AgentSchema, { PaginationSchema } from "./schema";
 import { scheduleAgent } from "./scheduler"
+import { runAgent } from "./runner";
 
 export const createAgent = async (req: Request, res: Response, next: NextFunction) => {
 
@@ -112,3 +113,60 @@ export const getAgent = async (req: Request, res: Response, next: NextFunction) 
     }
 
 };
+
+
+export const triggerAgent = async (req: Request, res: Response, next: NextFunction) => {
+
+    try {
+        const { agentId } = req.params as { agentId: string };
+        const agent = await prisma.agent.findFirst({
+            where: { id: agentId, userId: req.user.id },
+        });
+
+        if (!agent) {
+            return res.status(404).json({ message: "Agent not found" });
+        }
+
+        if (agent.status !== 'ACTIVE') {
+            return res.status(400).json({ message: "Agent is not active" });
+        }
+
+        // 
+        // model JobRun {
+        //   id          String     @id @default(uuid())
+        //   agent       Agent      @relation(fields: [agentId], references: [id])
+        //   agentId     String
+        //   status      StatusEnum
+        //   trace       Json
+        //   totalCost   Decimal
+        //   totalTokens Int
+        //   startedAt   DateTime
+        //   finishedAt  DateTime
+        //   createdAt   DateTime   @default(now())
+        //   updatedAt   DateTime   @updatedAt
+        // }
+
+
+        const run = await prisma.jobRun.create({
+            data: {
+                agentId: agent.id,
+                status: 'ACTIVE',
+                trace: req.body.trace || {},
+                totalCost: req.body.totalCost || 0,
+                totalTokens: req.body.totalTokens || 0,
+                startedAt: req.body.startedAt || new Date(),
+                finishedAt: req.body.finishedAt || new Date(),
+
+            },
+        });
+
+        await runAgent(agent, run);
+
+        return res.status(202).json({ message: "Agent triggered successfully", runId: run.id });
+
+
+    } catch (error) {
+        console.error(`Failed to trigger agent ${req.params?.agentId}:`, error);
+        return res.status(500).json({ message: "Failed to trigger agent", error });
+    }
+}
