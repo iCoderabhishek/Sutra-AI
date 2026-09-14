@@ -3,6 +3,9 @@ import dotenv from "dotenv"
 import authRoutes from '../modules/auth/routes'
 import cookieSession from "cookie-session"
 import { SESSION_SECRET } from '../libs/env'
+import "../libs/queue";
+
+
 
 dotenv.config()
 const app = express()
