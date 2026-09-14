@@ -7,6 +7,7 @@
 // Send email	Resend (free tier: 3000/mo)	$0.00
 // Total raw cost per run		~$0.006
 
+import { prisma } from "@sutra/db";
 import type { RunUsage } from "./types";
 
 // HERE 1 credit = $0.01 internally.
@@ -36,5 +37,41 @@ export const calculateRunCost = (usage: RunUsage) => {
     return {
         totalCost,
         credits
+    }
+}
+
+
+export const hasEnoughCredits = async (userId: string, minCreditsRequired: number = 1) => {
+
+    const userCredits = await prisma.credits.findFirst({
+        where: { userId }
+    })
+
+    if (!userCredits || Number(userCredits.balance) < minCreditsRequired) {
+        return {
+            hasEnoughCredits: false,
+            error: "Insufficient credits"
+        }
+    }
+
+    return {
+        hasEnoughCredits: true
+    }
+}
+
+export const deductCredits = async (userId: string, creditsToDeduct: number) => {
+    try {
+        const updatedCredits = await prisma.credits.updateMany({
+            where: { userId },
+            data: {
+                balance: {
+                    decrement: creditsToDeduct
+                }
+            }
+        });
+        return updatedCredits.count > 0;
+    } catch (error) {
+        console.error("Failed to deduct credits, cause: ", error);
+        throw error
     }
 }
