@@ -9,7 +9,6 @@ export const worker = new Worker("agent-queue", async (job) => {
         const { agentId, runId } = job.data;
         console.log(`{worker} Processing agent ${agentId}`);
 
-        // Reuse existing JobRun (manual trigger) or create a new one (cron-scheduled)
         let jobRun;
         if (runId) {
             jobRun = await prisma.jobRun.update({
