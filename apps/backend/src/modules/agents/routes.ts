@@ -12,3 +12,5 @@ router.get("/", authMiddleware, listAgents);
 router.get("/:agentId", authMiddleware, getAgent);
 
 router.post("/:agentId/run", authMiddleware, triggerAgent)
+
+export default router

@@ -4,6 +4,7 @@ import authRoutes from '../modules/auth/routes'
 import cookieSession from "cookie-session"
 import { SESSION_SECRET } from '../libs/env'
 import "../libs/queue";
+import agentRoutes from '../modules/agents/routes'
 
 
 
@@ -26,6 +27,7 @@ app.use(cookieSession({
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }))
 app.use("/api/v1/auth", authRoutes)
+app.use("/api/v1/agents", agentRoutes)
 
 
 app.listen(PORT, () => {
