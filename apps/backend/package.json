@@ -9,7 +9,8 @@
     "db:push": "cd ../../packages/db && bun db:push",
     "db:migrate": "cd ../../packages/db && bun db:migrate",
     "db:studio": "cd ../../packages/db && bun db:studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docker": "docker compose up -d --build"
   },
   "devDependencies": {
     "@types/bun": "latest",
