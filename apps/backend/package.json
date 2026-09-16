@@ -8,7 +8,9 @@
     "db:generate": "cd ../../packages/db && bun db:generate",
     "db:push": "cd ../../packages/db && bun db:push",
     "db:migrate": "cd ../../packages/db && bun db:migrate",
-    "db:studio": "cd ../../packages/db && bun db:studio"
+    "db:studio": "cd ../../packages/db && bun db:studio",
+    "typecheck": "tsc --noEmit",
+    "docker": "docker compose up -d --build"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -22,9 +24,11 @@
     "@types/cookie-session": "^2.0.49",
     "@types/express": "^5.0.6",
     "axios": "^1.20.0",
+    "bullmq": "^6.3.4",
     "cookie-session": "^2.1.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "ioredis": "^6.0.0",
     "redis": "^6.2.1",
     "zod": "^4.5.4"
   }
