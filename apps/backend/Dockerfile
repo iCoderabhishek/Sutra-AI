@@ -19,6 +19,7 @@ RUN cd packages/db && bun db:generate
 
 WORKDIR /app/apps/backend
 
-EXPOSE 8000
+ENV PORT=8000
+EXPOSE $PORT
 
-CMD ["bun", "run", "src/api/index.ts"]
+CMD sh -c "bun run src/api/index.ts"
