@@ -6,6 +6,7 @@ import cookieSession from "cookie-session"
 import { SESSION_SECRET } from '../libs/env'
 import "../libs/queue";
 import agentRoutes from '../modules/agents/routes'
+import creditRoutes from '../modules/credits/routes'
 
 const app = express()
 
@@ -28,7 +29,7 @@ app.use(cookieSession({
 }))
 app.use("/api/v1/auth", authRoutes)
 app.use("/api/v1/agents", agentRoutes)
-
+app.use("/api/v1/credits", creditRoutes)
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`)
