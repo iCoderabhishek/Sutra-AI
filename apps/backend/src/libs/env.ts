@@ -4,3 +4,4 @@ export const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL as string
 export const DATABASE_URL = process.env.DATABASE_URL as string;
 export const SESSION_SECRET = process.env.SESSION_SECRET as string
 export const REDIS_URL = process.env.REDIS_URL as string
+export const AGENT_BACKEND_URL = process.env.AGENT_BACKEND_URL as string
