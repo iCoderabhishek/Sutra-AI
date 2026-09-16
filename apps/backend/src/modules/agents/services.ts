@@ -3,6 +3,8 @@ import type { Request, Response, NextFunction } from "express";
 import AgentSchema, { PaginationSchema } from "./schema";
 import { scheduleAgent } from "./scheduler"
 import { runAgent } from "./runner";
+import { triggerAgentRun } from "../../libs/agent-proxy";
+import { deductCredits, hasEnoughCredits } from "../../libs/credits";
 
 export const createAgent = async (req: Request, res: Response, next: NextFunction) => {
 
@@ -35,7 +37,7 @@ export const createAgent = async (req: Request, res: Response, next: NextFunctio
                 tools,
                 schedule,
                 status,
-                userId: req.user.id,
+                userId: req.user.userId,
             },
         });
 
@@ -64,13 +66,13 @@ export const listAgents = async (req: Request, res: Response, next: NextFunction
     try {
         const [agents, total] = await Promise.all([
             prisma.agent.findMany({
-                where: { userId: req.user.id },
+                where: { userId: req.user.userId },
                 skip: (page - 1) * limit,
                 take: limit,
                 orderBy: { createdAt: 'desc' }
             }),
             prisma.agent.count({
-                where: { userId: req.user.id }
+                where: { userId: req.user.userId }
             })
         ]);
 
@@ -98,7 +100,7 @@ export const getAgent = async (req: Request, res: Response, next: NextFunction) 
 
     try {
         const agent = await prisma.agent.findFirst({
-            where: { id: agentId, userId: req.user.id },
+            where: { id: agentId, userId: req.user.userId },
         });
 
         if (!agent) {
@@ -120,7 +122,7 @@ export const triggerAgent = async (req: Request, res: Response, next: NextFuncti
     try {
         const { agentId } = req.params as { agentId: string };
         const agent = await prisma.agent.findFirst({
-            where: { id: agentId, userId: req.user.id },
+            where: { id: agentId, userId: req.user.userId },
         });
 
         if (!agent) {
@@ -146,6 +148,10 @@ export const triggerAgent = async (req: Request, res: Response, next: NextFuncti
         //   updatedAt   DateTime   @updatedAt
         // }
 
+        const checkCredits = await hasEnoughCredits(req.user.userId)
+        if (!checkCredits.hasEnoughCredits) {
+            return res.status(402).json({ message: "Insufficient credits to run this agent" });
+        }
 
         const run = await prisma.jobRun.create({
             data: {
@@ -159,6 +165,22 @@ export const triggerAgent = async (req: Request, res: Response, next: NextFuncti
 
             },
         });
+
+        const result = await triggerAgentRun({
+            goal: agent.prompt as string,
+            tools: agent.tools as string[]
+        })
+
+        if (result.error) {
+            return res.status(500).json({ message: "Failed to trigger agent" });
+        }
+
+        const deductedCredits = await deductCredits(req.user.userId, 1)
+        console.log("Credits deducted successfully", deductedCredits);
+
+
+        console.log("{Agent} Agent triggered successfully", result);
+
 
         await runAgent(agent, run);
 
