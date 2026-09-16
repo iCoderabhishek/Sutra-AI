@@ -5,6 +5,6 @@ import { getCredits } from "./services";
 
 const router = Router();
 
-router.get("/credits", authMiddleware, getCredits);
+router.get("/get-credits", authMiddleware, getCredits);
 
 export default router;
