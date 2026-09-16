@@ -8,7 +8,8 @@
     "db:generate": "cd ../../packages/db && bun db:generate",
     "db:push": "cd ../../packages/db && bun db:push",
     "db:migrate": "cd ../../packages/db && bun db:migrate",
-    "db:studio": "cd ../../packages/db && bun db:studio"
+    "db:studio": "cd ../../packages/db && bun db:studio",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest",
