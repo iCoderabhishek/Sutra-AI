@@ -6,7 +6,12 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
-    RESEND_API_KEY: str = ""
+    # SMTP Settings
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+
 
    
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
