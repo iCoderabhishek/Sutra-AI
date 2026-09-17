@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 class BaseTool(ABC):
     name: str
-    desciption: str
+    description: str
 
     args_schema: Type[BaseModel]
 
