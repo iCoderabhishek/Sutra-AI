@@ -12,7 +12,9 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
 
-
+    # system prompts for ai
+    SYSTEM_PROMPT: str = ""
+    USER_PROMPT: str = ""
    
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
