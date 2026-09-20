@@ -7,6 +7,7 @@ from google.genai import errors as genai_errors
 from libs.gemini_client import gemini_client, MODEL_ID, AGENT_TEMPERATURE
 from libs.env import settings
 from agent.tools import get_gemini_tool_declarations, dispatch_tool
+from utils.cost_tracker import CostTracker
 
 MAX_RETRIES = 3
 
@@ -70,9 +71,12 @@ async def run_agent(goal: str, stream_callback: Callable) -> str:
         temperature=AGENT_TEMPERATURE,
     )
 
+    cost = CostTracker(model=MODEL_ID)
+
     try:
         for i in range(MAX_ITERATIONS):
             response = await _call_with_retry(contents, config)
+            cost.add(response)  # accumulate tokens after every LLM call
 
             res = response.candidates[0].content
 
@@ -83,6 +87,7 @@ async def run_agent(goal: str, stream_callback: Callable) -> str:
                     "status": "done",
                     "content": final_text,
                     "iteration": i + 1,
+                    "cost": cost.total(),
                 })
                 return final_text
 
@@ -97,6 +102,7 @@ async def run_agent(goal: str, stream_callback: Callable) -> str:
                     "status": "running",
                     "args": dict(call.args),
                     "iteration": i + 1,
+                    "cost": cost.total(),
                 })
 
                 result = await dispatch_tool(call.name, dict(call.args))
@@ -104,8 +110,9 @@ async def run_agent(goal: str, stream_callback: Callable) -> str:
                 await stream_callback({
                     "step": f"Completed {call.name}",
                     "status": "done",
-                    "result_preview": result[:200],  # first 200 chars for trace UI
+                    "result_preview": result[:200],
                     "iteration": i + 1,
+                    "cost": cost.total(),
                 })
 
                 function_response_parts.append(
@@ -125,6 +132,7 @@ async def run_agent(goal: str, stream_callback: Callable) -> str:
             "step": "Max iterations reached",
             "status": "error",
             "iteration": MAX_ITERATIONS,
+            "cost": cost.total(),
         })
         return "Agent reached the maximum number of iterations without completing the task."
 
@@ -134,5 +142,6 @@ async def run_agent(goal: str, stream_callback: Callable) -> str:
             "step": "Agent Error",
             "status": "error",
             "content": str(e),
+            "cost": cost.total(),
         })
         return f"Agent encountered an error: {e}"
