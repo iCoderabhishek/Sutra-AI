@@ -47,18 +47,26 @@ model Agent {
   jobRuns     JobRun[]
 }
 
+enum JobRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  INSUFFICIENT_CREDITS
+}
+
 model JobRun {
-  id          String     @id @default(uuid())
-  agent       Agent      @relation(fields: [agentId], references: [id])
+  id          String       @id @default(uuid())
+  agent       Agent        @relation(fields: [agentId], references: [id])
   agentId     String
-  status      StatusEnum
-  trace       Json
-  totalCost   Decimal
-  totalTokens Int
-  startedAt   DateTime
-  finishedAt  DateTime
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  status      JobRunStatus @default(QUEUED)
+  trace       Json         @default("[]")
+  totalCost   Decimal      @default(0)
+  totalTokens Int          @default(0)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model Credits {

@@ -1,0 +1,26 @@
+services:
+  agent-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sutra_agent_runtime
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT:-8000}:${PORT:-8000}"
+    volumes:
+      - .:/app
+    environment:
+      PYTHONUNBUFFERED: 1
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@redis:6379
+      AGENT_SHARED_SECRET: ${AGENT_SHARED_SECRET:?AGENT_SHARED_SECRET must be set in .env}
+    env_file:
+      - .env
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - sutra
+
+networks:
+  sutra:
+    name: sutra-net
+    external: true

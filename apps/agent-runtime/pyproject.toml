@@ -1,0 +1,22 @@
+[project]
+name = "agent-runtime"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.141.1",
+    "firecrawl-py>=4.43.0",
+    "google-genai>=2.23.0",
+    "httpx>=0.28.1",
+    "openai>=3.14.1",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "python-dotenv>=1.2.3",
+    "redis>=6.4.0",
+    "resend>=2.46.0",
+    "rich>=15.0.0",
+    "tavily-python>=0.8.3",
+    "tiktoken>=0.14.0",
+    "uvicorn[standard]>=0.53.0",
+]

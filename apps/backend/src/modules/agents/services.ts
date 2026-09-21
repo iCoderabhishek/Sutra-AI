@@ -154,33 +154,8 @@ export const triggerAgent = async (req: Request, res: Response, next: NextFuncti
         }
 
         const run = await prisma.jobRun.create({
-            data: {
-                agentId: agent.id,
-                status: 'ACTIVE',
-                trace: req.body.trace || {},
-                totalCost: req.body.totalCost || 0,
-                totalTokens: req.body.totalTokens || 0,
-                startedAt: req.body.startedAt || new Date(),
-                finishedAt: req.body.finishedAt || new Date(),
-
-            },
+            data: { agentId: agent.id, status: 'QUEUED' },
         });
-
-        const result = await triggerAgentRun({
-            goal: agent.prompt as string,
-            tools: agent.tools as string[]
-        })
-
-        if (result.error) {
-            return res.status(500).json({ message: "Failed to trigger agent" });
-        }
-
-        const deductedCredits = await deductCredits(req.user.userId, 1)
-        console.log("Credits deducted successfully", deductedCredits);
-
-
-        console.log("{Agent} Agent triggered successfully", result);
-
 
         await runAgent(agent, run);
 

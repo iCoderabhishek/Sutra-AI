@@ -5,3 +5,4 @@ export const DATABASE_URL = process.env.DATABASE_URL as string;
 export const SESSION_SECRET = process.env.SESSION_SECRET as string
 export const REDIS_URL = process.env.REDIS_URL as string
 export const AGENT_BACKEND_URL = process.env.AGENT_BACKEND_URL as string
+export const AGENT_SHARED_SECRET = process.env.AGENT_SHARED_SECRET as string
