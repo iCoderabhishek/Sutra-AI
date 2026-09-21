@@ -13,6 +13,7 @@ dependencies = [
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "python-dotenv>=1.2.3",
+    "redis>=6.4.0",
     "resend>=2.46.0",
     "rich>=15.0.0",
     "tavily-python>=0.8.3",
