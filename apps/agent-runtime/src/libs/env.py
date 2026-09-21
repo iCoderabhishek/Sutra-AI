@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    # Redis
+    REDIS_URL: str = "redis://localhost:6381"
     # SMTP Settings
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
