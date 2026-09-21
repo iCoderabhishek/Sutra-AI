@@ -1,7 +1,7 @@
 from libs.gemini_client import MODEL_ID
 from utils.token_counter import extract_usage
 
-# Gemini pricing per 1M tokens (https://ai.google.dev/pricing)
+# Gemini pricing per 1M tokens (https://ai.google.dev/gemini-api/docs/pricing)
 PRICING = {
     "gemini-2.5-pro":   {"input": 1.25,  "output": 10.00},
     "gemini-2.5-flash": {"input": 0.15,  "output": 0.60},
@@ -26,7 +26,7 @@ class CostTracker:
         self.output_tokens += usage["output_tokens"]
 
     def total(self) -> dict:
-        pricing = PRICING.get(self.model, PRICING["gemini-2.5-pro"])
+        pricing = PRICING.get(self.model, PRICING["gemini-2.5-flash"])
         cost = (self.input_tokens / 1_000_000) * pricing["input"] \
              + (self.output_tokens / 1_000_000) * pricing["output"]
 
