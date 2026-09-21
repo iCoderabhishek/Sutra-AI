@@ -59,17 +59,19 @@ export const hasEnoughCredits = async (userId: string, minCreditsRequired: numbe
     }
 }
 
+export const usdToCredits = (usd: number) => usd / CREDIT_USD_VALUE;
+
 export const deductCredits = async (userId: string, creditsToDeduct: number) => {
     try {
-        const updatedCredits = await prisma.credits.updateMany({
-            where: { userId },
+        const updated = await prisma.credits.updateMany({
+            where: { userId, balance: { gte: creditsToDeduct } },
             data: {
                 balance: {
                     decrement: creditsToDeduct
                 }
             }
         });
-        return updatedCredits.count > 0;
+        return updated.count > 0;
     } catch (error) {
         console.error("Failed to deduct credits, cause: ", error);
         throw error
