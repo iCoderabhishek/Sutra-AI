@@ -3,39 +3,55 @@ services:
     image: postgres:16-alpine
     container_name: sutra-db
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: ${POSTGRES_DB:-sutra}
     ports:
-      - "${POSTGRES_PORT:-5435}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5435}:5432"
     volumes:
       - sutra-db:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sutra}" ]
       interval: 10s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
     networks:
       - sutra
 
   redis:
-    image: redis:latest
+    image: redis:7-alpine
     container_name: sutra-redis
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
+    command:
+      - sh
+      - -c
+      - >
+        exec redis-server
+        --requirepass "$$REDIS_PASSWORD"
+        --protected-mode yes
+        --maxmemory-policy noeviction
+        --appendonly yes
+        --rename-command CONFIG ""
+        --rename-command MODULE ""
+        --rename-command REPLICAOF ""
+        --rename-command SLAVEOF ""
+        --rename-command DEBUG ""
     ports:
-      - "${REDIS_PORT:-6381}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6381}:6379"
     volumes:
       - sutra-redis:/data
     healthcheck:
-      test: [ "CMD-SHELL", "redis-cli ping" ]
+      test: [ "CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG" ]
       interval: 10s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
     networks:
       - sutra
 
@@ -48,8 +64,8 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgress:5432/${POSTGRES_DB:-sutra}
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgress:5432/${POSTGRES_DB:-sutra}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
     ports:
       - "127.0.0.1:${PORT:-4000}:${PORT:-4000}"
     depends_on:
@@ -57,6 +73,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
     networks:
       - sutra
 
@@ -66,4 +84,5 @@ volumes:
 
 networks:
   sutra:
+    name: sutra-net
     driver: bridge

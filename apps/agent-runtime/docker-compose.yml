@@ -1,40 +1,26 @@
-version: '3.8'
-
 services:
   agent-runtime:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: sutra_agent_runtime
+    restart: unless-stopped
     ports:
-      - "${PORT:-8000}:${PORT:-8000}"
+      - "127.0.0.1:${PORT:-8000}:${PORT:-8000}"
     volumes:
       - .:/app
     environment:
-      - PYTHONUNBUFFERED=1
+      PYTHONUNBUFFERED: 1
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@redis:6379
+      AGENT_SHARED_SECRET: ${AGENT_SHARED_SECRET:?AGENT_SHARED_SECRET must be set in .env}
     env_file:
       - .env
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - sutra
 
-  redis:
-    image: redis:7-alpine
-    container_name: sutra_redis
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: sutra_postgres
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-      POSTGRES_DB: ${POSTGRES_DB:-sutra_db}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  redis_data:
-  postgres_data:
+networks:
+  sutra:
+    name: sutra-net
+    external: true
