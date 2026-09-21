@@ -1,4 +1,4 @@
-import { AGENT_BACKEND_URL } from "./env";
+import { AGENT_BACKEND_URL, AGENT_SHARED_SECRET } from "./env";
 import type { AgentRun } from "./types";
 
 export const triggerAgentRun = async (payload: {
@@ -12,6 +12,7 @@ export const triggerAgentRun = async (payload: {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Agent-Secret': AGENT_SHARED_SECRET,
             },
             body: JSON.stringify(payload)
         });

@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    # Shared secret the Node backend must present on every non-health request.
+    AGENT_SHARED_SECRET: str = ""
     # Redis
     REDIS_URL: str = "redis://localhost:6381"
     # SMTP Settings
