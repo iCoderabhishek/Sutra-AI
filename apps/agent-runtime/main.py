@@ -27,6 +27,10 @@ async def publish(run_id: str, payload: str) -> None:
     await redis_client.expire(key(run_id), TTL)
 
 
+# Caps concurrent agent loops. A leaked shared secret would otherwise let one
+run_slots = asyncio.Semaphore(settings.MAX_CONCURRENT_RUNS)
+
+
 async def require_secret(x_agent_secret: str = Header(default="")) -> None:
     # compare_digest, not ==, so a wrong guess can't be narrowed down by timing.
     if not secrets.compare_digest(x_agent_secret, settings.AGENT_SHARED_SECRET):
@@ -66,15 +70,23 @@ async def start_run(body: RunRequest):
 
     async def run_and_signal():
         try:
-            await run_agent(
-                goal=body.goal,
-                stream_callback=emit,
-                tools=body.tools,
-                system_prompt=body.system_prompt,
-                template=body.template,
-                instruction=body.instruction,
-                email=body.email,
-            )
+            # Queued rather than rejected, so a scheduled run still completes.
+            if run_slots.locked():
+                await emit({
+                    "step": "Waiting for a free run slot",
+                    "status": "running",
+                })
+
+            async with run_slots:
+                await run_agent(
+                    goal=body.goal,
+                    stream_callback=emit,
+                    tools=body.tools,
+                    system_prompt=body.system_prompt,
+                    template=body.template,
+                    instruction=body.instruction,
+                    email=body.email,
+                )
         except Exception as e:
             await emit({"step": "Runtime Error", "status": "error", "content": str(e)})
         finally:

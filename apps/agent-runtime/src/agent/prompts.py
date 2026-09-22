@@ -1,17 +1,8 @@
-"""
-System prompts, keyed by agent template.
-
-Before this module every agent shared one prompt from settings.SYSTEM_PROMPT,
-so a competitor-watch agent and a briefing agent behaved identically. The env
-prompt is now the base layer: it carries the identity and the security
-directives, and each template appends its own job description on top.
-"""
+"""System prompts, keyed by agent template."""
 
 from libs.env import settings
 from agent.tools import TOOL_MAP
 
-# Used when settings.SYSTEM_PROMPT is empty, so the agent is never handed a
-# blank system instruction (which makes Gemini ignore the tool contract).
 FALLBACK_BASE_PROMPT = (
     "You are Sutra, a task-execution AI agent. You operate in a ReAct loop: "
     "Think, Act, Observe, Repeat until the task is done. Plan before acting, "
@@ -58,8 +49,6 @@ TEMPLATE_PROMPTS: dict[str, str] = {
     ),
 }
 
-# Appended whenever a run has a delivery address, so the model treats sending
-# as part of the task rather than an optional extra.
 EMAIL_DIRECTIVE = (
     "DELIVERY\n"
     "This run must end with the finished result delivered by email using the "
@@ -73,11 +62,10 @@ EMAIL_DIRECTIVE = (
 
 def _tool_section(allowed: frozenset[str] | None) -> str:
     """
-    Describe exactly the tools this run may call.
+    Describe the tools this run may call.
 
-    Generated from the registry rather than written by hand, because a prompt
-    that lists tools statically will keep claiming a tool exists after the
-    allowlist removes it — the model then reports capabilities it does not have.
+    Generated from the registry, not written by hand: a static list keeps
+    claiming a tool exists after the allowlist removes it.
     """
     if allowed is None:
         names = sorted(TOOL_MAP)
@@ -108,14 +96,9 @@ def resolve_system_prompt(
     """
     Build the system instruction for one run.
 
-    Resolution order, first match wins for the task layer:
-      1. `override`   — the agent's own prompt, set explicitly by the user
-      2. `template`   — the matching entry in TEMPLATE_PROMPTS
-      3. base only    — generic agent behaviour
-
-    The base layer (settings.SYSTEM_PROMPT) is always present, because it holds
-    the identity and prompt-injection defences that must not be overridable by
-    per-agent config.
+    Task layer resolution, first match wins: override, then template, then
+    nothing. The base layer is always present — it holds the injection
+    defences, which per-agent config must not be able to drop.
     """
     base = (settings.SYSTEM_PROMPT or "").strip() or FALLBACK_BASE_PROMPT
     layers = [base, _tool_section(allowed)]
