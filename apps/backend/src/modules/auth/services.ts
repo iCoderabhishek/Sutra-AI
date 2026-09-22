@@ -3,6 +3,7 @@ import axios from "axios";
 import { GOOGLE_CLIENT_ID, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_SECRET } from "../../libs/env";
 import { prisma } from "@sutra/db";
 import { readAuthSession, setAuthSession } from "../../libs/session";
+import { ensureCredits } from "../../libs/credits";
 
 export const getMe = async (req: Request, res: Response, next: NextFunction) => {
     const session = readAuthSession(req)
@@ -76,6 +77,8 @@ export const getGoogleCallback = async (req: Request, res: Response, next: NextF
                 email: googleUser.email,
             }
         });
+
+        await ensureCredits(user.id);
 
         setAuthSession(req, access_token, user.id, data.refresh_token);
 

@@ -61,6 +61,20 @@ export const hasEnoughCredits = async (userId: string, minCreditsRequired: numbe
 
 export const usdToCredits = (usd: number) => usd / CREDIT_USD_VALUE;
 
+export const DEFAULT_FREE_CREDITS = 20;
+export const DEFAULT_PLAN = "FREE";
+
+// Gives a new user their starting wallet
+// THEY Can use this to get started, later they can buy more credits they want
+export const ensureCredits = async (userId: string) => {
+    const existing = await prisma.credits.findFirst({ where: { userId } });
+    if (existing) return existing;
+
+    return prisma.credits.create({
+        data: { userId, balance: DEFAULT_FREE_CREDITS, plan: DEFAULT_PLAN },
+    });
+};
+
 export const deductCredits = async (userId: string, creditsToDeduct: number) => {
     try {
         const updated = await prisma.credits.updateMany({
