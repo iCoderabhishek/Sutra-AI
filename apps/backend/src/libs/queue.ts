@@ -1,14 +1,32 @@
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
+import z from "zod";
 import { REDIS_URL } from "./env";
 import { prisma } from "@sutra/db";
 import { hasEnoughCredits, deductCredits, usdToCredits } from "./credits";
 import { streamAgentRun, triggerAgentRun, type TraceEvent } from "./agent-proxy";
 
+// Mirrors models/events.py TraceEvent.
+const TraceEventSchema = z.object({
+    step: z.string(),
+    status: z.enum(["running", "done", "error"]),
+    iteration: z.number().nullable().optional(),
+    content: z.string().nullable().optional(),
+    args: z.record(z.string(), z.unknown()).nullable().optional(),
+    result_preview: z.string().nullable().optional(),
+    cost: z.object({
+        input_tokens: z.number(),
+        output_tokens: z.number(),
+        total_tokens: z.number(),
+        cost_usd: z.number(),
+        model: z.string(),
+    }).nullable().optional(),
+});
+
 const connection = () => new Redis(REDIS_URL, { maxRetriesPerRequest: null });
 
-// Agent.prompt and Agent.instruction are Prisma Json columns, and the Zod
-// schema accepts objects, so they arrive as either a bare string or a wrapper
+// prompt and instruction are Json columns, so they arrive as a string or as a
+// wrapper object like { goal: "..." }.
 const asText = (value: unknown): string | undefined => {
     if (value === null || value === undefined) return undefined;
     if (typeof value === "string") return value.trim() || undefined;
@@ -31,7 +49,6 @@ export const worker = new Worker("agent-queue", async (job) => {
     const { agentId, runId } = job.data;
     console.log(`{worker} Processing agent ${agentId}`);
 
-    // user is included so the run can be delivered to the agent's owner.
     const agent = await prisma.agent.findUnique({
         where: { id: agentId },
         include: { user: true },
@@ -40,6 +57,16 @@ export const worker = new Worker("agent-queue", async (job) => {
     if (!agent || !agent.userId) {
         console.error(`{worker} Agent ${agentId} not found or has no user`);
         return;
+    }
+
+    // A BullMQ retry must not re-run or re-bill a completed run.
+    if (runId) {
+        const prior = await prisma.jobRun.findUnique({ where: { id: runId } });
+
+        if (prior?.status === "SUCCEEDED") {
+            console.log(`{worker} Run ${runId} already succeeded, skipping retry`);
+            return;
+        }
     }
 
     const jobRun = runId
@@ -89,8 +116,7 @@ export const worker = new Worker("agent-queue", async (job) => {
         return;
     }
 
-    // Delivery is opt-in: only agents configured with send_email get an
-    // address, so enabling the tool is what turns on emailing.
+    // Delivery is opt-in: enabling the tool is what turns on emailing.
     const wantsEmail = agent.tools.includes("send_email");
 
     const triggered = await triggerAgentRun({
@@ -120,7 +146,15 @@ export const worker = new Worker("agent-queue", async (job) => {
     let failed = false;
 
     try {
-        await streamAgentRun(jobRun.id, (event) => {
+        await streamAgentRun(jobRun.id, (raw) => {
+            const parsed = TraceEventSchema.safeParse(raw);
+
+            if (!parsed.success) {
+                console.warn(`{worker} Discarding malformed trace event for run ${jobRun.id}`);
+                return;
+            }
+
+            const event = parsed.data as TraceEvent;
             trace.push(event);
             if (event.cost) {
                 totalTokens = event.cost.total_tokens;
