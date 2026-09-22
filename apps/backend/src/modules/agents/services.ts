@@ -1,7 +1,7 @@
-import { prisma } from "@sutra/db";
+import { prisma, Prisma } from "@sutra/db";
 import type { Request, Response, NextFunction } from "express";
-import AgentSchema, { PaginationSchema } from "./schema";
-import { scheduleAgent } from "./scheduler"
+import AgentSchema, { AgentUpdateSchema, PaginationSchema } from "./schema";
+import { scheduleAgent, syncAgentSchedule, unscheduleAgent } from "./scheduler"
 import { runAgent } from "./runner";
 import { triggerAgentRun } from "../../libs/agent-proxy";
 import { deductCredits, hasEnoughCredits } from "../../libs/credits";
@@ -163,7 +163,75 @@ export const triggerAgent = async (req: Request, res: Response, next: NextFuncti
 
 
     } catch (error) {
-        console.error(`Failed to trigger agent ${req.params?.agentId}:`, error);
-        return res.status(500).json({ message: "Failed to trigger agent", error });
+        return next(error);
+    }
+}
+
+
+export const updateAgent = async (req: Request, res: Response, next: NextFunction) => {
+
+    const { agentId } = req.params as { agentId: string };
+    const result = AgentUpdateSchema.safeParse(req.body);
+
+    if (!result.success) {
+        return res.status(400).json({ message: "Invalid request body" });
+    }
+
+    try {
+        const existing = await prisma.agent.findFirst({
+            where: { id: agentId, userId: req.user.userId },
+        });
+
+        if (!existing) {
+            return res.status(404).json({ message: "Agent not found" });
+        }
+
+        const { schedule, ...rest } = result.data;
+
+        const agent = await prisma.agent.update({
+            where: { id: agentId },
+            data: {
+                ...rest,
+                // Prisma.DbNull clears a nullable Json column; plain null is ignored.
+                ...(schedule === undefined
+                    ? {}
+                    : { schedule: schedule === null ? Prisma.DbNull : schedule }),
+            },
+        });
+
+        await syncAgentSchedule(agent);
+
+        return res.status(200).json(agent);
+    } catch (error) {
+        return next(error);
+    }
+}
+
+
+// Soft delete: JobRun has a required FK to Agent, so a hard delete would take
+// the run history and its cost records with it.
+export const deleteAgent = async (req: Request, res: Response, next: NextFunction) => {
+
+    const { agentId } = req.params as { agentId: string };
+
+    try {
+        const existing = await prisma.agent.findFirst({
+            where: { id: agentId, userId: req.user.userId },
+        });
+
+        if (!existing) {
+            return res.status(404).json({ message: "Agent not found" });
+        }
+
+        await unscheduleAgent(agentId);
+
+        await prisma.agent.update({
+            where: { id: agentId },
+            data: { status: "INACTIVE", schedule: Prisma.DbNull },
+        });
+
+        return res.status(200).json({ message: "Agent deleted", id: agentId });
+    } catch (error) {
+        return next(error);
     }
 }
