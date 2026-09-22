@@ -66,7 +66,15 @@ async def start_run(body: RunRequest):
 
     async def run_and_signal():
         try:
-            await run_agent(goal=body.goal, stream_callback=emit)
+            await run_agent(
+                goal=body.goal,
+                stream_callback=emit,
+                tools=body.tools,
+                system_prompt=body.system_prompt,
+                template=body.template,
+                instruction=body.instruction,
+                email=body.email,
+            )
         except Exception as e:
             await emit({"step": "Runtime Error", "status": "error", "content": str(e)})
         finally:

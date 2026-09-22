@@ -5,8 +5,8 @@ from google.genai import types
 from google.genai import errors as genai_errors
 
 from libs.gemini_client import gemini_client, MODEL_ID, AGENT_TEMPERATURE
-from libs.env import settings
-from agent.tools import get_gemini_tool_declarations, dispatch_tool
+from agent.tools import get_gemini_tool_declarations, dispatch_tool, resolve_allowed
+from agent.prompts import resolve_system_prompt
 from utils.cost_tracker import CostTracker
 
 MAX_RETRIES = 3
@@ -39,7 +39,15 @@ MAX_ITERATIONS = 10
 # MAX_RETRIES = 3 is defined above _call_with_retry
 # may change later based on the agent performance
 
-async def run_agent(goal: str, stream_callback: Callable) -> str:
+async def run_agent(
+    goal: str,
+    stream_callback: Callable,
+    tools: list[str] | None = None,
+    system_prompt: str | None = None,
+    template: str | None = None,
+    instruction: str | None = None,
+    email: str | None = None,
+) -> str:
     """
     Core ReAct agent loop.
     Runs up to MAX_ITERATIONS rounds of: Think → Act (tool call) → Observe.
@@ -48,27 +56,41 @@ async def run_agent(goal: str, stream_callback: Callable) -> str:
     Args:
         goal:            The user's task description.
         stream_callback: An async callable that receives trace event dicts.
+        tools:           Per-agent tool allowlist. None means all tools.
+        system_prompt:   Per-agent prompt override.
+        template:        Template key used to pick a prompt when no override.
+        instruction:     Extra steering appended to the goal.
+        email:           Delivery address; force-enables send_email.
 
     Returns:
         The agent's final answer as a string.
     """
 
+    # Per-run config, resolved before the first call and constant thereafter.
+    allowed = resolve_allowed(tools, email)
+    declarations = get_gemini_tool_declarations(allowed)
+
     #  Conversation history (grows each iteration)
     # instead of init a langgraph here we are init a array of types.Content
     # and append to it in each iteration as context
-    
+
+    # The instruction is agent-level steering, so it belongs with the task
+    # rather than in the system layer, which stays reserved for identity.
+    task = goal if not instruction else f"{goal}\n\nAdditional instructions:\n{instruction}"
+
     contents: list[types.Content] = [
         types.Content(
             role="user",
-            parts=[types.Part(text=goal)]
+            parts=[types.Part(text=task)]
         )
     ]
 
     # Gemini call config (constant across all iterations)
     config = types.GenerateContentConfig(
-        system_instruction=settings.SYSTEM_PROMPT,
-        tools=[get_gemini_tool_declarations()],
+        system_instruction=resolve_system_prompt(template, system_prompt, email, allowed),
         temperature=AGENT_TEMPERATURE,
+        # function_declarations list.
+        **({"tools": [declarations]} if declarations else {}),
     )
 
     cost = CostTracker(model=MODEL_ID)
@@ -105,7 +127,7 @@ async def run_agent(goal: str, stream_callback: Callable) -> str:
                     "cost": cost.total(),
                 })
 
-                result = await dispatch_tool(call.name, dict(call.args))
+                result = await dispatch_tool(call.name, dict(call.args), allowed)
 
                 await stream_callback({
                     "step": f"Completed {call.name}",
