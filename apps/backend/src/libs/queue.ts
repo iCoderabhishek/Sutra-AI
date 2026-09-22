@@ -7,13 +7,35 @@ import { streamAgentRun, triggerAgentRun, type TraceEvent } from "./agent-proxy"
 
 const connection = () => new Redis(REDIS_URL, { maxRetriesPerRequest: null });
 
+// Agent.prompt and Agent.instruction are Prisma Json columns, and the Zod
+// schema accepts objects, so they arrive as either a bare string or a wrapper
+const asText = (value: unknown): string | undefined => {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value === "string") return value.trim() || undefined;
+
+    if (typeof value === "object") {
+        const bag = value as Record<string, unknown>;
+        for (const key of ["goal", "prompt", "text", "content", "instruction", "value"]) {
+            const found = bag[key];
+            if (typeof found === "string" && found.trim()) return found.trim();
+        }
+        return JSON.stringify(value);
+    }
+
+    return String(value);
+};
+
 export const agentQueue = new Queue("agent-queue", { connection: connection() });
 
 export const worker = new Worker("agent-queue", async (job) => {
     const { agentId, runId } = job.data;
     console.log(`{worker} Processing agent ${agentId}`);
 
-    const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+    // user is included so the run can be delivered to the agent's owner.
+    const agent = await prisma.agent.findUnique({
+        where: { id: agentId },
+        include: { user: true },
+    });
 
     if (!agent || !agent.userId) {
         console.error(`{worker} Agent ${agentId} not found or has no user`);
@@ -48,10 +70,36 @@ export const worker = new Worker("agent-queue", async (job) => {
         return;
     }
 
+    const goal = asText(agent.prompt);
+
+    if (!goal) {
+        await prisma.jobRun.update({
+            where: { id: jobRun.id },
+            data: {
+                status: "FAILED",
+                trace: [{
+                    type: "error",
+                    message: "Agent has no prompt, nothing to run.",
+                    timestamp: new Date().toISOString(),
+                }],
+                finishedAt: new Date(),
+            },
+        });
+        console.error(`{worker} Agent ${agentId} has no usable prompt`);
+        return;
+    }
+
+    // Delivery is opt-in: only agents configured with send_email get an
+    // address, so enabling the tool is what turns on emailing.
+    const wantsEmail = agent.tools.includes("send_email");
+
     const triggered = await triggerAgentRun({
-        goal: agent.prompt as string,
+        goal,
         tools: agent.tools,
         run_id: jobRun.id,
+        template: agent.template ?? undefined,
+        instruction: asText(agent.instruction),
+        email: wantsEmail ? agent.user?.email : undefined,
     });
 
     if (triggered.error) {

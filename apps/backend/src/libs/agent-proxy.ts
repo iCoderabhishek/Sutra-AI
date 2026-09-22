@@ -6,11 +6,17 @@ const authHeaders = {
     'X-Agent-Secret': AGENT_SHARED_SECRET,
 };
 
-export const triggerAgentRun = async (payload: {
+export type RunPayload = {
     goal: string;
-    tools: string[];
     run_id: string;
-}): Promise<AgentRun> => {
+    tools?: string[];
+    system_prompt?: string;
+    template?: string;
+    instruction?: string;
+    email?: string;
+};
+
+export const triggerAgentRun = async (payload: RunPayload): Promise<AgentRun> => {
 
     try {
         const res = await fetch(`${AGENT_BACKEND_URL}/agents/run`, {
