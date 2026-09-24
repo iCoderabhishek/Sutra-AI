@@ -7,8 +7,10 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:${PORT:-8000}:${PORT:-8000}"
+    # Dev only: remove the volume and command overrides before deploying.
     volumes:
       - .:/app
+    command: sh -c "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --reload"
     environment:
       PYTHONUNBUFFERED: 1
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@redis:6379

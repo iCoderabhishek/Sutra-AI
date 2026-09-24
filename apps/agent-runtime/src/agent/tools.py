@@ -5,9 +5,6 @@ from tools.scrapper import ScrapperTool
 from tools.search import WebSearchTool
 from tools.emailer import EmailTool
 
-# The full registry. A run never sees this directly — it gets a per-run subset
-# resolved by resolve_allowed(), so an agent configured with only web_search
-# cannot reach send_email.
 TOOLS = [
     WebSearchTool(),
     ScrapperTool(),
@@ -20,23 +17,16 @@ TOOL_MAP = {t.name: t for t in TOOLS}
 ALL_TOOL_NAMES = frozenset(TOOL_MAP)
 
 
-#  Allowlist resolution
-
 def resolve_allowed(
     requested: list[str] | None,
     email: str | None = None,
 ) -> frozenset[str]:
     """
-    Turn an agent's configured tool list into the set it may actually call.
+    Resolve the tool names this run may call.
 
-    - None  → every registered tool (back-compat for bare {"goal": "..."} calls)
-    - []    → no tools; the model answers from its own knowledge
-    - list  → intersected with the registry, so an unknown name in the database
-              is dropped instead of crashing the run
-
-    When `email` is set, send_email is added regardless. Delivery is the point
-    of a scheduled briefing, and an agent whose allowlist omits it would
-    research successfully and then silently fail to deliver.
+    None means all tools, [] means none, and unknown names are dropped rather
+    than raising. send_email is added whenever an email is set, since a run with
+    a delivery address that cannot send would fail silently.
     """
     if requested is None:
         allowed = set(ALL_TOOL_NAMES)
@@ -49,13 +39,8 @@ def resolve_allowed(
     return frozenset(allowed)
 
 
-#  Schema conversion
-
 def _clean_schema(schema: dict) -> dict:
-    """
-    Strip 'title' fields that Pydantic adds but Gemini doesn't accept.
-    Gemini's FunctionDeclaration parameters must be a clean JSON Schema object.
-    """
+    """Strip 'title' fields that Pydantic adds but Gemini rejects."""
     schema.pop("title", None)
     for prop in schema.get("properties", {}).values():
         prop.pop("title", None)
@@ -64,11 +49,10 @@ def _clean_schema(schema: dict) -> dict:
 
 def get_gemini_tool_declarations(allowed: frozenset[str] | None = None) -> types.Tool | None:
     """
-    Convert the allowed BaseTool instances into a single Gemini types.Tool.
+    Convert the allowed tools into a single Gemini types.Tool.
 
-    Returns None when nothing is allowed. Gemini rejects a Tool carrying an
-    empty function_declarations list, so the caller must omit `tools` from the
-    request config entirely in that case.
+    Returns None when nothing is allowed; Gemini rejects a Tool with an empty
+    function_declarations list, so the caller must omit `tools` entirely.
     """
     names = ALL_TOOL_NAMES if allowed is None else allowed
     declarations = []
@@ -100,13 +84,10 @@ async def dispatch_tool(
     allowed: frozenset[str] | None = None,
 ) -> str:
     """
-    Look up a tool by name, check it against the allowlist, validate its
-    arguments, and execute it. Always returns a string (safe to append back to
-    the Gemini conversation).
+    Validate and execute one tool call, returning a string for the conversation.
 
-    The allowlist is re-checked here rather than trusted from the declarations:
-    a model can hallucinate a function name it was never offered, and that call
-    must not reach a real tool.
+    The allowlist is re-checked here rather than trusted from the declarations,
+    because a model can call a function name it was never offered.
     """
     names = ALL_TOOL_NAMES if allowed is None else allowed
 
@@ -117,7 +98,6 @@ async def dispatch_tool(
             f"Available tools: {sorted(names)}"
         )
 
-    # Validate args against the tool's Pydantic schema
     try:
         tool.args_schema(**args)
     except ValidationError as e:

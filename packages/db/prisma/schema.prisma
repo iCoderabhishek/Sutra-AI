@@ -21,7 +21,7 @@ model User {
   agents    Agent[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  credits   Credits[]
+  credits   Credits?
 }
 
 enum StatusEnum {
@@ -72,7 +72,7 @@ model JobRun {
 model Credits {
   id        String   @id @default(uuid())
   user      User     @relation(fields: [userId], references: [id])
-  userId    String
+  userId    String   @unique
   balance   Decimal
   plan      String
   createdAt DateTime @default(now())

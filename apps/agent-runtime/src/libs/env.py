@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
 
+    # Safety limits
+    MAX_RUN_COST_USD: float = 0.25
+    MAX_CONCURRENT_RUNS: int = 5
+
     # system prompts for ai
     SYSTEM_PROMPT: str = ""
     USER_PROMPT: str = ""

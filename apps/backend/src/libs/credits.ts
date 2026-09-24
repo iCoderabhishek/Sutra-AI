@@ -14,36 +14,20 @@ import type { RunUsage } from "./types";
 
 export const CREDIT_USD_VALUE = 0.01;
 
+// LLM cost comes from the runtime's reported cost_usd, not from here.
 export const PRICING = {
     FIRECRAWL_PER_PAGE: 0.0008,
-    GPT_4O_MINI_INPUT_1K: 0.000015,
-    GPT_4O_MINI_OUTPUT_1K: 0.0006,
-    RESEND_PER_EMAIL: 0.0,
+    SMTP_PER_EMAIL: 0.0,
 }
 
-export const calculateRunCost = (usage: RunUsage) => {
-
-    const fircrawlCost = usage.pageScraped * PRICING.FIRECRAWL_PER_PAGE
-
-    const inputCost = (usage.promptTokens / 1000) * PRICING.GPT_4O_MINI_INPUT_1K
-    const outputCost = (usage.completionTokens / 1000) * PRICING.GPT_4O_MINI_OUTPUT_1K
-
-    const llmCost = inputCost + outputCost
-
-    const totalCost = fircrawlCost + llmCost + PRICING.RESEND_PER_EMAIL
-
-    const credits = totalCost / CREDIT_USD_VALUE
-
-    return {
-        totalCost,
-        credits
-    }
-}
+export const calculateSideCarCost = (usage: RunUsage) =>
+    usage.pagesScraped * PRICING.FIRECRAWL_PER_PAGE
+    + usage.emailsSent * PRICING.SMTP_PER_EMAIL
 
 
 export const hasEnoughCredits = async (userId: string, minCreditsRequired: number = 1) => {
 
-    const userCredits = await prisma.credits.findFirst({
+    const userCredits = await prisma.credits.findUnique({
         where: { userId }
     })
 
@@ -66,17 +50,16 @@ export const DEFAULT_PLAN = "FREE";
 
 // Gives a new user their starting wallet
 // THEY Can use this to get started, later they can buy more credits they want
-export const ensureCredits = async (userId: string) => {
-    const existing = await prisma.credits.findFirst({ where: { userId } });
-    if (existing) return existing;
-
-    return prisma.credits.create({
-        data: { userId, balance: DEFAULT_FREE_CREDITS, plan: DEFAULT_PLAN },
+export const ensureCredits = async (userId: string) =>
+    prisma.credits.upsert({
+        where: { userId },
+        update: {},
+        create: { userId, balance: DEFAULT_FREE_CREDITS, plan: DEFAULT_PLAN },
     });
-};
 
 export const deductCredits = async (userId: string, creditsToDeduct: number) => {
     try {
+        // updateMany so the balance check and the decrement are one statement.
         const updated = await prisma.credits.updateMany({
             where: { userId, balance: { gte: creditsToDeduct } },
             data: {
