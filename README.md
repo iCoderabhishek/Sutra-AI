@@ -164,4 +164,4 @@ All routes are under `/api/v1` and require an authenticated session.
 
 ## Status
 
-The control plane and agent runtime are complete. A web frontend (agent creation, configuration, and a live trace viewer) was designed but not built. The backend already provides everything it would need, including the SSE trace stream.
+The control plane and agent runtime are complete. Now starting the fronend as CLI instead of a WEB. The backend already provides everything it would need, including the SSE trace stream.
