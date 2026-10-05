@@ -16,8 +16,8 @@ export const createAgent = async (req: Request, res: Response, next: NextFunctio
 
     const { name, desc, prompt, template, instruction, tools, schedule, status } = result.data;
 
-    if (!name || !prompt || !tools || !schedule) {
-        return res.status(400).json({ message: "All fields are required" });
+    if (!name || !prompt || !tools) {
+        return res.status(400).json({ message: "Name, prompt, and tools are required" });
     }
 
     if (status) {
