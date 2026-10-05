@@ -4,16 +4,12 @@ import { GOOGLE_CLIENT_ID, GOOGLE_CALLBACK_URL, GOOGLE_CLIENT_SECRET } from "../
 import { prisma } from "@sutra/db";
 import { readAuthSession, setAuthSession } from "../../libs/session";
 import { ensureCredits } from "../../libs/credits";
+import jwt from "jsonwebtoken";
+import { SESSION_SECRET } from "../../libs/env";
 
 export const getMe = async (req: Request, res: Response, next: NextFunction) => {
-    const session = readAuthSession(req)
-    if (!session) {
-        res.status(401).json({ message: "Unauthorized" })
-        return
-    }
-
     const user = await prisma.user.findUnique({
-        where: { id: session.userId }
+        where: { id: req.user.userId }
     })
 
     if (!user) {
@@ -27,13 +23,17 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
         name: user.name,
         avatar: user.avatar,
         githubInstallationId: user.googleId,
-        accessToken: session.access_token,
-        userId: session.userId,
-        refreshToken: session.refresh_token,
+        accessToken: req.user.access_token,
+        userId: req.user.userId,
+        refreshToken: req.user.refresh_token,
     })
 }
 
 export const redirectToGoogle = (req: Request, res: Response) => {
+    const { cli_redirect } = req.query;
+    if (cli_redirect && req.session) {
+        req.session.cli_redirect = cli_redirect;
+    }
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_CALLBACK_URL}&response_type=code&scope=profile email`;
     res.redirect(url);
 }
@@ -81,6 +81,15 @@ export const getGoogleCallback = async (req: Request, res: Response, next: NextF
         await ensureCredits(user.id);
 
         setAuthSession(req, access_token, user.id, data.refresh_token);
+
+        const cliRedirect = req.session?.cli_redirect;
+        if (cliRedirect && req.session) {
+            delete req.session.cli_redirect;
+            const token = jwt.sign({ userId: user.id }, SESSION_SECRET, { expiresIn: '7d' });
+            const redirectUrl = new URL(cliRedirect as string);
+            redirectUrl.searchParams.append("token", token);
+            return res.redirect(redirectUrl.toString());
+        }
 
         return res.json({
             message: "Successfully authenticated with Google",
