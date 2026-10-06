@@ -21,13 +21,15 @@ func (c *Client) GetAgent(id string) (*Agent, error) {
 }
 
 func (c *Client) ListAgents() ([]Agent, error) {
-	var agents []Agent
+	var response struct {
+		Data []Agent `json:"data"`
+	}
 
-	err := c.doRequest("GET", "/api/v1/agents", nil, &agents)
+	err := c.doRequest("GET", "/api/v1/agents", nil, &response)
 	if err != nil {
 		return nil, err
 	}
-	return agents, nil
+	return response.Data, nil
 }
 
 // CreateAgent creates a new agent and returns the created Agent object
@@ -47,7 +49,7 @@ func (c *Client) CreateAgent(payload CreateAgentRequest) (*Agent, error) {
 func (c *Client) UpdateAgent(id string, payload CreateAgentRequest) (*Agent, error) {
 	var agent Agent
 
-	path := fmt.Sprintf("/api/v1/agents/:%s", id)
+	path := fmt.Sprintf("/api/v1/agents/%s", id)
 
 	err := c.doRequest("PATCH", path, payload, &agent)
 	if err != nil {
