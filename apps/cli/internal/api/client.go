@@ -8,14 +8,16 @@ import (
 )
 
 type Client struct {
-	baseURL string
-	http    *http.Client
+	baseURL       string
+	sessionCookie string
+	http          *http.Client
 }
 
-func NewClient(baseURL string) *Client {
+func NewClient(baseURL string, sessionCookie string) *Client {
 	return &Client{
-		baseURL: baseURL,
-		http:    &http.Client{},
+		baseURL:       baseURL,
+		sessionCookie: sessionCookie,
+		http:          &http.Client{},
 	}
 }
 
@@ -35,6 +37,13 @@ func (c *Client) doRequest(method string, path string, reqBody interface{}, resB
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	if c.sessionCookie != "" {
+		req.AddCookie(&http.Cookie{
+			Name:  "session",
+			Value: c.sessionCookie,
+		})
+	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {

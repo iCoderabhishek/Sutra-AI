@@ -1,10 +1,73 @@
 package config
 
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
 type SessionConfig struct {
 	Cookie string `json:"cookie"`
-	Token  string `json:"token"`
+	Token  string `json:"token,omitempty"`
 }
 
-func SaveSession(cookieValue string) error {}
+func getSessionPath() (string, error) {
+	configRoot, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("could not find user config dir: %w", err)
+	}
+	appConfigDir := filepath.Join(configRoot, "sutraai")
+	
+	// Ensure directory exists
+	if err := os.MkdirAll(appConfigDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create config directory: %w", err)
+	}
 
-func LoadSession() (string, error) {}
+	return filepath.Join(appConfigDir, "session.json"), nil
+}
+
+func SaveSession(cookieValue string) error {
+	sessionPath, err := getSessionPath()
+	if err != nil {
+		return err
+	}
+
+	session := SessionConfig{
+		Cookie: cookieValue,
+	}
+
+	data, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal session: %w", err)
+	}
+
+	if err := os.WriteFile(sessionPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write session file: %w", err)
+	}
+
+	return nil
+}
+
+func LoadSession() (string, error) {
+	sessionPath, err := getSessionPath()
+	if err != nil {
+		return "", err
+	}
+
+	data, err := os.ReadFile(sessionPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No session file exists yet, return empty cookie
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to read session file: %w", err)
+	}
+
+	var session SessionConfig
+	if err := json.Unmarshal(data, &session); err != nil {
+		return "", fmt.Errorf("failed to parse session file: %w", err)
+	}
+
+	return session.Cookie, nil
+}
