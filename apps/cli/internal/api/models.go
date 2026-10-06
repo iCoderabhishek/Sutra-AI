@@ -159,3 +159,13 @@ type TraceEvent struct {
 	ResultPreview *string          `json:"result_preview,omitempty"`
 	Cost          *TraceEventCost  `json:"cost,omitempty"`
 }
+
+// payloads -- --
+
+type CreateAgentRequest struct {
+	Name        string   `json:"name"`
+	Prompt      any      `json:"prompt"`
+	Instruction any      `json:"instruction,omitempty"`
+	Tools       []string `json:"tools"`
+	Schedule    any      `json:"schedule,omitempty"`
+}
