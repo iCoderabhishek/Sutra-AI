@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 )
@@ -44,8 +43,20 @@ func (c *Client) doRequest(method string, path string, reqBody interface{}, resB
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		// to do: Parse standard API error response
-		return fmt.Errorf("API request failed with status: %d", resp.StatusCode)
+		apiErr := &APIError{
+			StatusCode: resp.StatusCode,
+			Method:     resp.Request.Method,
+			URL:        resp.Request.URL.String(),
+		}
+
+		// Attempt to parse the JSON error message from the backend
+		if err := json.NewDecoder(resp.Body).Decode(apiErr); err != nil {
+			apiErr.Message = "Unknown error (failed to decode response)"
+		} else if apiErr.Message == "" {
+			apiErr.Message = "Unknown error"
+		}
+
+		return apiErr
 	}
 
 	if resBody != nil {
