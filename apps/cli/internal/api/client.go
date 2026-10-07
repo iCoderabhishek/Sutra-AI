@@ -59,9 +59,13 @@ func (c *Client) doRequest(method string, path string, reqBody interface{}, resB
 		}
 
 		// Attempt to parse the JSON error message from the backend
-		if err := json.NewDecoder(resp.Body).Decode(apiErr); err != nil {
-			apiErr.Message = "Unknown error (failed to decode response)"
-		} else if apiErr.Message == "" {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		if err := json.Unmarshal(bodyBytes, apiErr); err != nil {
+			// If not JSON, use the raw response as the error message
+			apiErr.Message = string(bodyBytes)
+		}
+		
+		if apiErr.Message == "" {
 			apiErr.Message = "Unknown error"
 		}
 
