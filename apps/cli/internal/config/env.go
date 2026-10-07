@@ -12,9 +12,9 @@ type EnvConfig struct {
 }
 func GetEnvConfig() EnvConfig {
 	return EnvConfig{
-		BackendURL:      getEnvOrDefault("SUTRA_BACKEND_URL", "http://localhost:3000"),
+		BackendURL:      getEnvOrDefault("SUTRA_BACKEND_URL", "http://localhost:4000"),
 		OAuthCallback:   getEnvOrDefault("SUTRA_OAUTH_CALLBACK", "http://localhost:8080/callback"),
-		OAuthRoute:      getEnvOrDefault("SUTRA_OAUTH_ROUTE", "/auth/google"),
+		OAuthRoute:      getEnvOrDefault("SUTRA_OAUTH_ROUTE", "/api/v1/auth/google"),
 		LocalServerAddr: getEnvOrDefault("SUTRA_LOCAL_SERVER_ADDR", "localhost:8080"),
 	}
 }

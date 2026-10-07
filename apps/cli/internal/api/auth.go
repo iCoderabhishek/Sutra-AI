@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"time"
@@ -29,6 +30,11 @@ func (c *Client) Login() error {
 
 	env := config.GetEnvConfig()
 
+	callbackURL, err := url.Parse(env.OAuthCallback)
+	if err != nil {
+		return fmt.Errorf("invalid OAuth callback URL: %w", err)
+	}
+
 	// local http server to listen callback
 	mux := http.NewServeMux()
 	server := &http.Server{
@@ -36,7 +42,7 @@ func (c *Client) Login() error {
 		Handler: mux,
 	}
 
-	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(callbackURL.Path, func(w http.ResponseWriter, r *http.Request) {
 		// The backend redirects with ?token= for the CLI flow
 		token := r.URL.Query().Get("token")
 		
