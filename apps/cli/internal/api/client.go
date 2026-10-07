@@ -39,10 +39,7 @@ func (c *Client) doRequest(method string, path string, reqBody interface{}, resB
 	req.Header.Set("Content-Type", "application/json")
 
 	if c.sessionCookie != "" {
-		req.AddCookie(&http.Cookie{
-			Name:  "session",
-			Value: c.sessionCookie,
-		})
+		req.Header.Set("Authorization", "Bearer "+c.sessionCookie)
 	}
 
 	resp, err := c.http.Do(req)

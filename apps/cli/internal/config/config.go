@@ -27,14 +27,14 @@ func getSessionPath() (string, error) {
 	return filepath.Join(appConfigDir, "session.json"), nil
 }
 
-func SaveSession(cookieValue string) error {
+func SaveSession(tokenValue string) error {
 	sessionPath, err := getSessionPath()
 	if err != nil {
 		return err
 	}
 
 	session := SessionConfig{
-		Cookie: cookieValue,
+		Token: tokenValue,
 	}
 
 	data, err := json.MarshalIndent(session, "", "  ")
@@ -58,7 +58,6 @@ func LoadSession() (string, error) {
 	data, err := os.ReadFile(sessionPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// No session file exists yet, return empty cookie
 			return "", nil
 		}
 		return "", fmt.Errorf("failed to read session file: %w", err)
@@ -69,5 +68,8 @@ func LoadSession() (string, error) {
 		return "", fmt.Errorf("failed to parse session file: %w", err)
 	}
 
+	if session.Token != "" {
+		return session.Token, nil
+	}
 	return session.Cookie, nil
 }
