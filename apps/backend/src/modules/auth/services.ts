@@ -31,16 +31,24 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
 
 export const redirectToGoogle = (req: Request, res: Response) => {
     const { cli_redirect } = req.query;
-    if (cli_redirect && req.session) {
-        req.session.cli_redirect = cli_redirect;
-    }
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${GOOGLE_CALLBACK_URL}&response_type=code&scope=profile email`;
+    // Encode cli_redirect into the state parameter to safely pass it through Google
+    const state = cli_redirect ? Buffer.from(cli_redirect as string).toString('base64') : '';
+    
+    const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: GOOGLE_CALLBACK_URL,
+        response_type: 'code',
+        scope: 'profile email',
+        state: state
+    });
+
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     res.redirect(url);
 }
 
 export const getGoogleCallback = async (req: Request, res: Response, next: NextFunction) => {
 
-    const { code } = req.query
+    const { code, state } = req.query
 
     if (!code) {
         return res.status(400).json({ error: "Authorization code missing" });
@@ -82,11 +90,19 @@ export const getGoogleCallback = async (req: Request, res: Response, next: NextF
 
         setAuthSession(req, access_token, user.id, data.refresh_token);
 
-        const cliRedirect = req.session?.cli_redirect;
-        if (cliRedirect && req.session) {
-            delete req.session.cli_redirect;
+        // Decode cli_redirect from the state parameter
+        let cliRedirect: string | null = null;
+        if (state && typeof state === 'string') {
+            try {
+                cliRedirect = Buffer.from(state, 'base64').toString('utf-8');
+            } catch (e) {
+                console.warn("Failed to decode OAuth state");
+            }
+        }
+
+        if (cliRedirect) {
             const token = jwt.sign({ userId: user.id }, SESSION_SECRET, { expiresIn: '7d' });
-            const redirectUrl = new URL(cliRedirect as string);
+            const redirectUrl = new URL(cliRedirect);
             redirectUrl.searchParams.append("token", token);
             return res.redirect(redirectUrl.toString());
         }

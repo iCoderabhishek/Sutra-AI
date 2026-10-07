@@ -3,6 +3,11 @@ import secrets
 import uuid
 from contextlib import asynccontextmanager
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 
