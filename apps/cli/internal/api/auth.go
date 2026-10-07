@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"time"
 
-	"sutra-ai-agent/apps/cli/internal/config"
+	"github.com/iCoderabhishek/Sutra-AI/internal/config"
 )
 
 
