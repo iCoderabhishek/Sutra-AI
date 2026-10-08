@@ -1,21 +1,23 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
+
+	"github.com/iCoderabhishek/Sutra-AI/internal/api"
+	"github.com/iCoderabhishek/Sutra-AI/internal/config"
+	"github.com/iCoderabhishek/Sutra-AI/internal/tui"
 )
 
 func main() {
+	env := config.GetEnvConfig()
+	client := api.NewClient(env.BackendURL, "")
 
-	fmt.Println("Welcome to SutraAI by Abhishek")
-	for {
-		fmt.Printf("Enter your text >>> ")
-		scanner := bufio.NewScanner(os.Stdin)
-		scanner.Scan()
-		text := scanner.Text()
+	// A missing session is fine: the TUI shows the sign-in screen on 401.
+	_ = client.InitAuth()
 
-		fmt.Println("You entered - ", text)
+	if err := tui.Run(client); err != nil {
+		fmt.Fprintln(os.Stderr, "sutra:", err)
+		os.Exit(1)
 	}
-
 }
