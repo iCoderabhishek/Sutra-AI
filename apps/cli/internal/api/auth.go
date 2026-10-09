@@ -22,6 +22,12 @@ func (c *Client) InitAuth() error {
 	return nil
 }
 
+// Logout forgets the session locally. The backend token simply expires.
+func (c *Client) Logout() error {
+	c.sessionCookie = ""
+	return config.ClearSession()
+}
+
 // Login opens the browser for OAuth and starts a local server to receive the callback.
 func (c *Client) Login() error {
 

@@ -63,8 +63,8 @@ func (c *Client) StreamRunLogs(ctx context.Context, runId string) (<-chan TraceE
 			data = strings.TrimSpace(data)
 
 			var event TraceEvent
+			// Skip malformed events silently: printing here would corrupt the TUI.
 			if err := json.Unmarshal([]byte(data), &event); err != nil {
-				fmt.Printf("Warning: failed to parse trace event: %v (payload: %s)\n", err, data)
 				continue
 			}
 

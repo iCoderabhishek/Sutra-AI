@@ -73,3 +73,15 @@ func LoadSession() (string, error) {
 	}
 	return session.Cookie, nil
 }
+
+// ClearSession removes the saved session file. A missing file is not an error.
+func ClearSession() error {
+	sessionPath, err := getSessionPath()
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(sessionPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove session file: %w", err)
+	}
+	return nil
+}
