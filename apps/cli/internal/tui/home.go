@@ -43,6 +43,7 @@ type (
 	dashboardErrMsg    struct{ err error }
 	loginDoneMsg       struct{ err error }
 	refreshTickMsg     struct{ gen int }
+	logoutDoneMsg      struct{ err error }
 )
 
 type homeState int
@@ -61,6 +62,7 @@ type menuItem struct {
 	hint    string
 	screen  Screen
 	refresh bool // true = refresh the dashboard instead of navigating
+	signOut bool // true = forget the saved session
 }
 
 var homeMenu = []menuItem{
@@ -69,6 +71,7 @@ var homeMenu = []menuItem{
 	{title: "My agents", desc: "Browse, edit, pause or delete agents", hint: "a", screen: ScreenAgents},
 	{title: "Run history", desc: "Past runs, traces, cost and tokens", hint: "h", screen: ScreenRuns},
 	{title: "Refresh", desc: "Reload stats from the server", hint: "r", refresh: true},
+	{title: "Sign out", desc: "Forget this device's session", hint: "o", signOut: true},
 }
 
 type homeKeys struct {
@@ -226,6 +229,23 @@ func (m homeModel) Update(msg tea.Msg) (homeModel, tea.Cmd) {
 		m.toast = msg.text
 		return m, nil
 
+	case resumedMsg:
+		// Back from another screen: agents or runs may have changed.
+		if m.state != homeReady || m.refreshing {
+			return m, nil
+		}
+		m.refreshing = true
+		return m, fetchDashboard(m.client)
+
+	case logoutDoneMsg:
+		if msg.err != nil {
+			m.toast = "Couldn't sign out: " + msg.err.Error()
+			return m, nil
+		}
+		m.stats, m.cursor, m.state = nil, 0, homeNeedsLogin
+		m.toast = "Signed out"
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -274,6 +294,10 @@ func (m homeModel) handleKey(msg tea.KeyMsg) (homeModel, tea.Cmd) {
 }
 
 func (m homeModel) activate(item menuItem) (homeModel, tea.Cmd) {
+	if item.signOut {
+		client := m.client
+		return m, func() tea.Msg { return logoutDoneMsg{client.Logout()} }
+	}
 	if item.refresh {
 		if m.refreshing {
 			return m, nil
