@@ -162,10 +162,33 @@ type TraceEvent struct {
 
 // payloads -- --
 
+// CreateAgentRequest mirrors the backend AgentSchema. Name, Prompt, Tools and
+// Status are required by the backend; Status must be ACTIVE for runs to work.
 type CreateAgentRequest struct {
-	Name        string   `json:"name"`
-	Prompt      any      `json:"prompt"`
-	Instruction any      `json:"instruction,omitempty"`
-	Tools       []string `json:"tools"`
-	Schedule    any      `json:"schedule,omitempty"`
+	Name        string      `json:"name"`
+	Desc        string      `json:"desc,omitempty"`
+	Prompt      any         `json:"prompt"`
+	Template    string      `json:"template,omitempty"`
+	Instruction any         `json:"instruction,omitempty"`
+	Tools       []string    `json:"tools"`
+	Schedule    any         `json:"schedule,omitempty"`
+	Status      AgentStatus `json:"status"`
+}
+
+type UpdateAgentRequest struct {
+	Name        *string          `json:"name,omitempty"`
+	Desc        *string          `json:"desc,omitempty"`
+	Prompt      any              `json:"prompt,omitempty"`
+	Template    *string          `json:"template,omitempty"`
+	Instruction any              `json:"instruction,omitempty"`
+	Tools       []string         `json:"tools,omitempty"`
+	Schedule    *json.RawMessage `json:"schedule,omitempty"`
+	Status      *AgentStatus     `json:"status,omitempty"`
+}
+
+var ClearSchedule = func() *json.RawMessage { r := json.RawMessage("null"); return &r }()
+
+type TriggerRunResponse struct {
+	Message string `json:"message"`
+	RunID   string `json:"runId"`
 }

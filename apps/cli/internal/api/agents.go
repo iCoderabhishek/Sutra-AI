@@ -46,7 +46,8 @@ func (c *Client) CreateAgent(payload CreateAgentRequest) (*Agent, error) {
 	return &agent, nil
 }
 
-func (c *Client) UpdateAgent(id string, payload CreateAgentRequest) (*Agent, error) {
+// UpdateAgent sends only the fields set on payload (PATCH semantics).
+func (c *Client) UpdateAgent(id string, payload UpdateAgentRequest) (*Agent, error) {
 	var agent Agent
 
 	path := fmt.Sprintf("/api/v1/agents/%s", id)
@@ -57,6 +58,11 @@ func (c *Client) UpdateAgent(id string, payload CreateAgentRequest) (*Agent, err
 	}
 
 	return &agent, nil
+}
+
+// SetAgentStatus pauses, resumes or deactivates an agent without touching other fields.
+func (c *Client) SetAgentStatus(id string, status AgentStatus) (*Agent, error) {
+	return c.UpdateAgent(id, UpdateAgentRequest{Status: &status})
 }
 
 func (c *Client) DeleteAgent(id string) error {
