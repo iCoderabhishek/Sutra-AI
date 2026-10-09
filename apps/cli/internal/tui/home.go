@@ -117,7 +117,8 @@ type homeModel struct {
 	err         error
 	toast       string
 	cursor      int
-	dense       int // layout density, set per render by View
+	dense       int  // layout density, set per render by View
+	clip        bool // last resort: cut the body to fit under the logo
 	refreshing  bool
 	refreshGen  int
 	lastUpdated time.Time
@@ -298,8 +299,22 @@ func (m homeModel) View() string {
 			return out
 		}
 	}
+	// Still too tall: keep the logo and footer, cut the dashboard from the bottom.
 	m.dense = maxDense
-	return m.render(m.compactHeaderView())
+	m.clip = true
+	return m.render(m.headerView(m.contentWidth()))
+}
+
+// clipLines keeps the first n lines of s.
+func clipLines(s string, n int) string {
+	lines := strings.Split(s, "\n")
+	if n < 0 {
+		n = 0
+	}
+	if len(lines) <= n {
+		return s
+	}
+	return strings.Join(lines[:n], "\n")
 }
 
 // Density levels used by View:
@@ -340,6 +355,10 @@ func (m homeModel) render(header string) string {
 	footer := m.help.View(m.keys)
 	if m.toast != "" {
 		footer = styleToast.Render("● "+m.toast) + "\n" + footer
+	}
+
+	if m.clip && m.height > 0 {
+		body = clipLines(body, m.height-lipgloss.Height(header)-lipgloss.Height(footer))
 	}
 
 	if m.dense >= 1 {
