@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -32,7 +33,7 @@ type Agent struct {
 	Prompt      json.RawMessage `json:"prompt"`
 	Template    *string         `json:"template"`
 	Instruction json.RawMessage `json:"instruction"`
-	Tools       []string        `json:"tools"`
+	Tools       []ToolName      `json:"tools"` // may contain names this CLI doesn't know; check Valid()
 	Schedule    json.RawMessage `json:"schedule"`
 	Status      AgentStatus     `json:"status"`
 	CreatedAt   time.Time       `json:"createdAt"`
@@ -44,7 +45,7 @@ type JobRun struct {
 	AgentID     string          `json:"agentId"`
 	Status      RunStatus       `json:"status"`
 	Trace       json.RawMessage `json:"trace"` // Stores the array of event traces
-	TotalCost   string          `json:"totalCost"`
+	TotalCost   float64         `json:"totalCost"`
 	TotalTokens int             `json:"totalTokens"`
 	StartedAt   *time.Time      `json:"startedAt"`
 	FinishedAt  *time.Time      `json:"finishedAt"`
@@ -160,6 +161,47 @@ type TraceEvent struct {
 	Cost          *TraceEventCost  `json:"cost,omitempty"`
 }
 
+//  -- STRICT TYPING OF TOOLS USED GLOBALLY in cli--
+
+type ToolName string
+
+const (
+	ToolWebSearch ToolName = "web_search"
+	ToolScrapper  ToolName = "scrapper"
+	ToolSendEmail ToolName = "send_email"
+)
+
+type ToolInfo struct {
+	Name ToolName
+	Desc string
+}
+
+var AllTools = []ToolInfo{
+	{ToolWebSearch, "Search the web"},
+	{ToolScrapper, "Read a web page as markdown"},
+	{ToolSendEmail, "Email the result"},
+}
+
+// Valid reports whether t is a tool the runtime knows.
+func (t ToolName) Valid() bool {
+	for _, info := range AllTools {
+		if info.Name == t {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateTools returns an error naming the first unknown tool, if any.
+func ValidateTools(tools []ToolName) error {
+	for _, t := range tools {
+		if !t.Valid() {
+			return fmt.Errorf("unknown tool %q", t)
+		}
+	}
+	return nil
+}
+
 // payloads -- --
 
 // CreateAgentRequest mirrors the backend AgentSchema. Name, Prompt, Tools and
@@ -170,7 +212,7 @@ type CreateAgentRequest struct {
 	Prompt      any         `json:"prompt"`
 	Template    string      `json:"template,omitempty"`
 	Instruction any         `json:"instruction,omitempty"`
-	Tools       []string    `json:"tools"`
+	Tools       []ToolName  `json:"tools"`
 	Schedule    any         `json:"schedule,omitempty"`
 	Status      AgentStatus `json:"status"`
 }
@@ -181,7 +223,7 @@ type UpdateAgentRequest struct {
 	Prompt      any              `json:"prompt,omitempty"`
 	Template    *string          `json:"template,omitempty"`
 	Instruction any              `json:"instruction,omitempty"`
-	Tools       []string         `json:"tools,omitempty"`
+	Tools       []ToolName       `json:"tools,omitempty"`
 	Schedule    *json.RawMessage `json:"schedule,omitempty"`
 	Status      *AgentStatus     `json:"status,omitempty"`
 }
