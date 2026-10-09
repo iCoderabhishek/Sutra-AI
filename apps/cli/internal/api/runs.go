@@ -5,7 +5,6 @@ import (
 	"net/url"
 )
 
-// TriggerRun queues a run. The backend only returns the run ID (202), so the											
 // returned JobRun has ID, AgentID and Status set; call GetRun for full details.
 func (c *Client) TriggerRun(agentId string) (*JobRun, error) {
 	var res TriggerRunResponse
@@ -21,6 +20,7 @@ func (c *Client) TriggerRun(agentId string) (*JobRun, error) {
 
 func (c *Client) ListRuns(agentId string, status string) ([]RecentRun, error) {
 	query := url.Values{}
+	query.Add("limit", "50")
 	if agentId != "" {
 		query.Add("agentId", agentId)
 	}
@@ -52,4 +52,3 @@ func (c *Client) GetRun(id string) (*JobRun, error) {
 	}
 	return &jobRun, nil
 }
-

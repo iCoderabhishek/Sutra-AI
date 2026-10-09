@@ -22,9 +22,9 @@ var (
 
 	styleTagline   = lipgloss.NewStyle().Foreground(colorMuted).Italic(true)
 	styleSignature = lipgloss.NewStyle().Foreground(colorAccent).Italic(true)
-	styleGreet   = lipgloss.NewStyle().Foreground(colorText).Bold(true)
-	styleMuted   = lipgloss.NewStyle().Foreground(colorMuted)
-	styleText    = lipgloss.NewStyle().Foreground(colorText)
+	styleGreet     = lipgloss.NewStyle().Foreground(colorText).Bold(true)
+	styleMuted     = lipgloss.NewStyle().Foreground(colorMuted)
+	styleText      = lipgloss.NewStyle().Foreground(colorText)
 
 	stylePanel = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -41,6 +41,14 @@ var (
 	styleMenuSelected = lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
 	styleMenuDesc     = lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(4)
 	styleKeyHint      = lipgloss.NewStyle().Foreground(colorAccent)
+
+	stylePage       = lipgloss.NewStyle().Padding(1, 2)
+	styleBrandStart = lipgloss.NewStyle().Foreground(logoGradient[0]).Bold(true)
+	styleBrandEnd   = lipgloss.NewStyle().Foreground(logoGradient[len(logoGradient)-1]).Bold(true)
+
+	styleStatusActive   = lipgloss.NewStyle().Foreground(colorSuccess)
+	styleStatusPaused   = lipgloss.NewStyle().Foreground(colorWarning)
+	styleStatusInactive = lipgloss.NewStyle().Foreground(colorMuted)
 
 	styleToast = lipgloss.NewStyle().Foreground(colorWarning)
 	styleError = lipgloss.NewStyle().

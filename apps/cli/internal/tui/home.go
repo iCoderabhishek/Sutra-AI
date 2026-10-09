@@ -43,7 +43,6 @@ type (
 	dashboardErrMsg    struct{ err error }
 	loginDoneMsg       struct{ err error }
 	refreshTickMsg     struct{ gen int }
-	toastMsg           struct{ text string }
 )
 
 type homeState int
@@ -73,9 +72,9 @@ var homeMenu = []menuItem{
 }
 
 type homeKeys struct {
-	Up, Down, Select                key.Binding
-	Run, New, Agents, History       key.Binding
-	Refresh, Login, Help, Quit      key.Binding
+	Up, Down, Select           key.Binding
+	Run, New, Agents, History  key.Binding
+	Refresh, Login, Help, Quit key.Binding
 }
 
 func newHomeKeys() homeKeys {
@@ -414,11 +413,7 @@ func (m homeModel) headerView(w int) string {
 
 // compactHeaderView is the one-line brand used when vertical space is tight.
 func (m homeModel) compactHeaderView() string {
-	brand := lipgloss.NewStyle().Foreground(logoGradient[0]).Bold(true).Render("◆ SUTRA") +
-		lipgloss.NewStyle().Foreground(logoGradient[len(logoGradient)-1]).Bold(true).Render(" AI") +
-		" " + styleSignature.Render("by Abhishek")
-
-	line := brand + styleMuted.Render("  ·  ") + styleGreet.Render(greeting())
+	line := brandLine() + styleMuted.Render("  ·  ") + styleGreet.Render(greeting())
 	if s := m.statusLine(); s != "" {
 		line += styleMuted.Render("  ·  ") + s
 	}
@@ -498,7 +493,7 @@ func (m homeModel) cardsView(w int) string {
 
 	type cardData struct {
 		label, value, sub string
-		color              lipgloss.TerminalColor
+		color             lipgloss.TerminalColor
 	}
 	cards := []cardData{
 		{"CREDITS", fmt.Sprintf("%.2f", s.Credits.Balance), plan, creditColor},
