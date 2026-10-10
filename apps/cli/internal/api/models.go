@@ -33,6 +33,7 @@ type Agent struct {
 	Prompt      json.RawMessage `json:"prompt"`
 	Template    *string         `json:"template"`
 	Instruction json.RawMessage `json:"instruction"`
+	Model       *string         `json:"model"`
 	Tools       []ToolName      `json:"tools"` // may contain names this CLI doesn't know; check Valid()
 	Schedule    json.RawMessage `json:"schedule"`
 	Status      AgentStatus     `json:"status"`
@@ -212,6 +213,7 @@ type CreateAgentRequest struct {
 	Prompt      any         `json:"prompt"`
 	Template    string      `json:"template,omitempty"`
 	Instruction any         `json:"instruction,omitempty"`
+	Model       string      `json:"model,omitempty"`
 	Tools       []ToolName  `json:"tools"`
 	Schedule    any         `json:"schedule,omitempty"`
 	Status      AgentStatus `json:"status"`
@@ -223,6 +225,7 @@ type UpdateAgentRequest struct {
 	Prompt      any              `json:"prompt,omitempty"`
 	Template    *string          `json:"template,omitempty"`
 	Instruction any              `json:"instruction,omitempty"`
+	Model       *string          `json:"model,omitempty"`
 	Tools       []ToolName       `json:"tools,omitempty"`
 	Schedule    *json.RawMessage `json:"schedule,omitempty"`
 	Status      *AgentStatus     `json:"status,omitempty"`
@@ -233,4 +236,37 @@ var ClearSchedule = func() *json.RawMessage { r := json.RawMessage("null"); retu
 type TriggerRunResponse struct {
 	Message string `json:"message"`
 	RunID   string `json:"runId"`
+}
+
+// Report is the fixed shape of every final answer (agent-runtime
+// models/report.py). It arrives as JSON in the "Final Answer" event's content.
+type Report struct {
+	Outcome    string          `json:"outcome"` // completed | partial | declined
+	Headline   string          `json:"headline"`
+	Summary    string          `json:"summary"`
+	Findings   []ReportFinding `json:"findings"`
+	Sources    []ReportSource  `json:"sources"`
+	Takeaway   string          `json:"takeaway"`
+	Confidence string          `json:"confidence"` // high | medium | low
+}
+
+type ReportFinding struct {
+	Title  string   `json:"title"`
+	Points []string `json:"points"`
+}
+
+type ReportSource struct {
+	Name string  `json:"name"`
+	Date *string `json:"date"`
+	URL  *string `json:"url"`
+}
+
+// ParseReport decodes a final answer. ok is false for older runs that stored
+// free text, so callers can fall back to plain rendering.
+func ParseReport(content string) (*Report, bool) {
+	var r Report
+	if err := json.Unmarshal([]byte(content), &r); err != nil || r.Headline == "" || r.Summary == "" {
+		return nil, false
+	}
+	return &r, true
 }
