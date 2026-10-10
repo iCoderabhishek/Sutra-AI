@@ -3,6 +3,7 @@ package tui
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -110,6 +111,37 @@ func statusBadge(s api.AgentStatus) string {
 	default:
 		return styleStatusInactive.Render("○ inactive")
 	}
+}
+
+// ---- terminal safety ----
+
+var (
+	ansiEscape = regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]`)
+	mdLink     = regexp.MustCompile(`\[([^\]]+)\]\((https?://[^)\s]+)\)`)
+	mdEmphasis = regexp.MustCompile("(\\*\\*|__|`)(\\S.*?\\S|\\S)(\\*\\*|__|`)")
+	mdHeading  = regexp.MustCompile(`^#{1,6}\s+`)
+	mdBullet   = regexp.MustCompile(`^[-*+•]\s+`)
+)
+
+// sanitize strips escape sequences and control characters from server text,
+// so a tool result can't move the cursor, recolor or clear the terminal.
+func sanitize(s string) string {
+	s = ansiEscape.ReplaceAllString(s, "")
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return r
+		}
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// stripInline removes markdown emphasis and turns links into "text (url)".
+func stripInline(s string) string {
+	s = mdLink.ReplaceAllString(s, "$1 ($2)")
+	return strings.ReplaceAll(mdEmphasis.ReplaceAllString(s, "$2"), "**", "")
 }
 
 // errText prefers the backend's message over the full API error string.
