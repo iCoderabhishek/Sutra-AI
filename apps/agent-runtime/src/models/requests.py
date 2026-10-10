@@ -11,4 +11,5 @@ class RunRequest(BaseModel):
     template: Optional[str] = None
     instruction: Optional[str] = None
     email: Optional[str] = None
+    model: Optional[str] = None
     run_id: Optional[str] = None
