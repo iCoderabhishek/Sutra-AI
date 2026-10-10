@@ -170,6 +170,7 @@ const (
 	ToolWebSearch ToolName = "web_search"
 	ToolScrapper  ToolName = "scrapper"
 	ToolReadFeed  ToolName = "read_feed"
+	ToolMemory    ToolName = "memory"
 	ToolSendEmail ToolName = "send_email"
 )
 
@@ -182,6 +183,7 @@ var AllTools = []ToolInfo{
 	{ToolWebSearch, "Search the web"},
 	{ToolScrapper, "Read a web page as markdown"},
 	{ToolReadFeed, "Latest items from an RSS/Atom feed"},
+	{ToolMemory, "Remember findings, report only what's new"},
 	{ToolSendEmail, "Email the result"},
 }
 
