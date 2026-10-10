@@ -12,7 +12,6 @@ import (
 	"github.com/iCoderabhishek/Sutra-AI/internal/config"
 )
 
-
 func (c *Client) InitAuth() error {
 	cookie, err := config.LoadSession()
 	if err != nil {
@@ -51,7 +50,7 @@ func (c *Client) Login() error {
 	mux.HandleFunc(callbackURL.Path, func(w http.ResponseWriter, r *http.Request) {
 		// The backend redirects with ?token= for the CLI flow
 		token := r.URL.Query().Get("token")
-		
+
 		if token == "" {
 			http.Error(w, "No auth token received", http.StatusBadRequest)
 			errChan <- fmt.Errorf("no token received in callback")
@@ -97,11 +96,6 @@ func (c *Client) Login() error {
 
 	return nil
 }
-
-
-
-
-
 
 func openBrowser(url string) error {
 	var err error
