@@ -5,11 +5,12 @@ import (
 )
 
 type EnvConfig struct {
-	BackendURL    string
+	BackendURL      string
 	OAuthCallback   string
 	OAuthRoute      string
 	LocalServerAddr string
 }
+
 func GetEnvConfig() EnvConfig {
 	return EnvConfig{
 		BackendURL:      getEnvOrDefault("SUTRA_BACKEND_URL", "http://localhost:4000"),
@@ -18,7 +19,6 @@ func GetEnvConfig() EnvConfig {
 		LocalServerAddr: getEnvOrDefault("SUTRA_LOCAL_SERVER_ADDR", "localhost:8080"),
 	}
 }
-
 
 func getEnvOrDefault(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists && value != "" {
