@@ -16,7 +16,7 @@ func main() {
 
 	fmt.Println("🤖 Sutra CLI Scratchpad 🤖")
 	fmt.Println("---------------------------")
-	
+
 	// 2. Try to load existing auth session, or fallback to login flow
 	if err := client.InitAuth(); err != nil {
 		fmt.Printf("No existing session found: %v\n", err)
@@ -24,13 +24,13 @@ func main() {
 
 	fmt.Println("Checking authentication by fetching dashboard...")
 	dashboard, err := client.GetDashboard()
-	
+
 	if err != nil {
 		fmt.Printf("Auth check failed (%v). Starting interactive login flow...\n", err)
 		if err := client.Login(); err != nil {
 			log.Fatalf("❌ Login failed: %v", err)
 		}
-		
+
 		fmt.Println("Fetching dashboard again after login...")
 		dashboard, err = client.GetDashboard()
 		if err != nil {
@@ -79,7 +79,7 @@ func main() {
 				fmt.Println("\n🏁 Stream closed cleanly.")
 				return
 			}
-			
+
 			// Format the event output
 			statusIcon := "🔄"
 			if event.Status == api.TraceEventDone {
@@ -87,13 +87,13 @@ func main() {
 			} else if event.Status == api.TraceEventError {
 				statusIcon = "❌"
 			}
-			
+
 			fmt.Printf("%s [%s] %s\n", statusIcon, event.Status, event.Step)
-			
+
 			if event.ResultPreview != nil && *event.ResultPreview != "" {
 				fmt.Printf("   -> %s\n", *event.ResultPreview)
 			}
-			
+
 		case err, ok := <-errors:
 			if ok && err != nil {
 				log.Fatalf("\n❌ Stream error: %v", err)
