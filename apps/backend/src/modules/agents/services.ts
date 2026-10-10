@@ -14,7 +14,7 @@ export const createAgent = async (req: Request, res: Response, next: NextFunctio
         return res.status(400).json({ message: "Invalid request body", error: result.error });
     }
 
-    const { name, desc, prompt, template, instruction, tools, schedule, status } = result.data;
+    const { name, desc, prompt, template, instruction, tools, schedule, status, model } = result.data;
 
     if (!name || !prompt || !tools) {
         return res.status(400).json({ message: "Name, prompt, and tools are required" });
@@ -34,6 +34,7 @@ export const createAgent = async (req: Request, res: Response, next: NextFunctio
                 prompt,
                 template,
                 instruction,
+                model,
                 tools,
                 schedule,
                 status,
