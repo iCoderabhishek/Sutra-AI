@@ -61,7 +61,7 @@ func (c *Client) doRequest(method string, path string, reqBody interface{}, resB
 			// If not JSON, use the raw response as the error message
 			apiErr.Message = string(bodyBytes)
 		}
-		
+
 		if apiErr.Message == "" {
 			apiErr.Message = "Unknown error"
 		}

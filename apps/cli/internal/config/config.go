@@ -18,7 +18,7 @@ func getSessionPath() (string, error) {
 		return "", fmt.Errorf("could not find user config dir: %w", err)
 	}
 	appConfigDir := filepath.Join(configRoot, "sutraai")
-	
+
 	// Ensure directory exists
 	if err := os.MkdirAll(appConfigDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create config directory: %w", err)
