@@ -14,6 +14,7 @@ export type RunPayload = {
     template?: string;
     instruction?: string;
     email?: string;
+    model?: string;
 };
 
 export const triggerAgentRun = async (payload: RunPayload): Promise<AgentRun> => {
@@ -53,6 +54,13 @@ export type TraceEvent = {
     };
 };
 
+export class RunNotStartedError extends Error {
+    constructor(runId: string) {
+        super(`Run ${runId} has not reached the agent runtime yet`);
+        this.name = "RunNotStartedError";
+    }
+}
+
 export const streamAgentRun = async (
     runId: string,
     onEvent: (event: TraceEvent) => void
@@ -60,6 +68,10 @@ export const streamAgentRun = async (
     const res = await fetch(`${AGENT_BACKEND_URL}/agents/run/${runId}/stream`, {
         headers: authHeaders,
     });
+
+    if (res.status === 404) {
+        throw new RunNotStartedError(runId);
+    }
 
     if (!res.ok || !res.body) {
         throw new Error(`Agent stream failed with ${res.status}`);
