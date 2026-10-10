@@ -3,7 +3,7 @@ import { Redis } from "ioredis";
 import z from "zod";
 import { REDIS_URL } from "./env";
 import { prisma } from "@sutra/db";
-import { hasEnoughCredits, deductCredits, usdToCredits } from "./credits";
+import { hasEnoughCredits, deductCredits, usdToCredits, calculateSideCarCost } from "./credits";
 import { streamAgentRun, triggerAgentRun, type TraceEvent } from "./agent-proxy";
 
 // Mirrors models/events.py TraceEvent.
@@ -126,6 +126,7 @@ export const worker = new Worker("agent-queue", async (job) => {
         template: agent.template ?? undefined,
         instruction: asText(agent.instruction),
         email: wantsEmail ? agent.user?.email : undefined,
+        model: agent.model ?? undefined,
     });
 
     if (triggered.error) {
@@ -144,6 +145,8 @@ export const worker = new Worker("agent-queue", async (job) => {
     let totalTokens = 0;
     let costUsd = 0;
     let failed = false;
+    let pagesScraped = 0;
+    let emailsSent = 0;
 
     try {
         await streamAgentRun(jobRun.id, (raw) => {
@@ -160,6 +163,12 @@ export const worker = new Worker("agent-queue", async (job) => {
                 totalTokens = event.cost.total_tokens;
                 costUsd = event.cost.cost_usd;
             }
+            if (event.status === "done" && event.step === "Completed scrapper") {
+                pagesScraped += 1;
+            }
+            if (event.status === "done" && event.step === "Completed send_email") {
+                emailsSent += 1;
+            }
             if (event.status === "error") failed = true;
         });
     } catch (err) {
@@ -171,23 +180,29 @@ export const worker = new Worker("agent-queue", async (job) => {
         });
     }
 
+    const sideCarCost = calculateSideCarCost({ pagesScraped, emailsSent });
+    const finalUsdCost = costUsd + sideCarCost;
+
     await prisma.jobRun.update({
         where: { id: jobRun.id },
         data: {
             status: failed ? "FAILED" : "SUCCEEDED",
             trace: trace as any,
-            totalCost: costUsd,
+            totalCost: finalUsdCost,
             totalTokens,
             finishedAt: new Date(),
         },
     });
 
-    const credits = Math.max(usdToCredits(costUsd), 1);
-    const deducted = await deductCredits(agent.userId, credits);
+    let credits = 0;
+    if (totalTokens > 0 || finalUsdCost > 0) {
+        credits = Math.max(usdToCredits(finalUsdCost), 1);
+        const deducted = await deductCredits(agent.userId, credits);
 
-    if (!deducted) {
-        console.warn(`{worker} Could not deduct ${credits} credits from user ${agent.userId}`);
+        if (!deducted) {
+            console.warn(`{worker} Could not deduct ${credits} credits from user ${agent.userId}`);
+        }
     }
 
-    console.log(`{worker} Run ${jobRun.id} ${failed ? "failed" : "succeeded"} — ${totalTokens} tokens, $${costUsd}`);
+    console.log(`{worker} Run ${jobRun.id} ${failed ? "failed" : "succeeded"} — ${totalTokens} tokens, $${finalUsdCost.toFixed(4)} (LLM: $${costUsd.toFixed(4)}, Sidecar: $${sideCarCost.toFixed(4)})`);
 }, { connection: connection() });

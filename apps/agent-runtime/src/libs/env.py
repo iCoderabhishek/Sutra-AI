@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     FIRECRAWL_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""
     # Shared secret the Node backend must present on every non-health request.
     AGENT_SHARED_SECRET: str = ""
     # Redis
@@ -19,6 +20,7 @@ class Settings(BaseSettings):
     # Safety limits
     MAX_RUN_COST_USD: float = 0.25
     MAX_CONCURRENT_RUNS: int = 5
+
 
     # system prompts for ai
     SYSTEM_PROMPT: str = ""

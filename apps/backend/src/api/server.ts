@@ -10,6 +10,7 @@ import agentRoutes from '../modules/agents/routes'
 import creditRoutes from '../modules/credits/routes'
 import runRoutes from '../modules/runs/routes'
 import dashboardRoutes from '../modules/dashboard/routes'
+import modelsRoutes from '../modules/models/routes'
 import { reconcileSchedules } from '../modules/agents/scheduler'
 
 const app = express()
@@ -36,6 +37,7 @@ app.use("/api/v1/agents", agentRoutes)
 app.use("/api/v1/credits", creditRoutes)
 app.use("/api/v1/runs", runRoutes)
 app.use("/api/v1/dashboard", dashboardRoutes)
+app.use("/api/v1/models", modelsRoutes)
 
 app.use((req, res) => {
     res.status(404).json({ message: "Not found" })

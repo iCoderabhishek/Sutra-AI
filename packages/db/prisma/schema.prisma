@@ -39,6 +39,7 @@ model Agent {
   prompt      Json?
   template    String?
   instruction Json?
+  model       String?
   tools       String[]
   schedule    Json?
   status      StatusEnum @default(ACTIVE)

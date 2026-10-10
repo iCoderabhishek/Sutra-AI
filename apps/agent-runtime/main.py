@@ -3,6 +3,11 @@ import secrets
 import uuid
 from contextlib import asynccontextmanager
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import StreamingResponse
 
@@ -86,6 +91,7 @@ async def start_run(body: RunRequest):
                     template=body.template,
                     instruction=body.instruction,
                     email=body.email,
+                    model=body.model,
                 )
         except Exception as e:
             await emit({"step": "Runtime Error", "status": "error", "content": str(e)})
@@ -102,10 +108,16 @@ async def stream_run(run_id: str):
     if not await redis_client.exists(key(run_id)):
         raise HTTPException(status_code=404, detail=f"No run found with id '{run_id}'")
 
+    import redis.exceptions
+
     async def event_generator():
         last_id = "0-0"
         while True:
-            response = await redis_client.xread({key(run_id): last_id}, count=100, block=15_000)
+            try:
+                response = await redis_client.xread({key(run_id): last_id}, count=100, block=15_000)
+            except (TimeoutError, redis.exceptions.TimeoutError):
+                response = None
+
             if not response:
                 yield ": keep-alive\n\n"
                 continue

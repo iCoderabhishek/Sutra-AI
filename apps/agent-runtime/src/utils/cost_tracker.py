@@ -1,11 +1,10 @@
-from libs.gemini_client import MODEL_ID
+
 from utils.token_counter import extract_usage
 
-# Gemini pricing per 1M tokens (https://ai.google.dev/gemini-api/docs/pricing)
+# AWS Bedrock pricing per 1M tokens
 PRICING = {
-    "gemini-2.5-pro":   {"input": 1.25,  "output": 10.00},
-    "gemini-2.5-flash": {"input": 0.15,  "output": 0.60},
-    "gemini-2.0-flash": {"input": 0.10,  "output": 0.40},
+    "anthropic.claude-3-5-sonnet-20240620-v1:0": {"input": 3.00,  "output": 15.00},
+    "us.anthropic.claude-3-5-sonnet-20241022-v2:0": {"input": 3.00,  "output": 15.00},
 }
 
 
@@ -15,7 +14,7 @@ class CostTracker:
     Call add() after each Gemini response, then total() to get the summary.
     """
 
-    def __init__(self, model: str = MODEL_ID):
+    def __init__(self, model: str = "meta-llama/llama-3.3-70b-instruct:free"):
         self.model = model
         self.input_tokens = 0
         self.output_tokens = 0
@@ -26,7 +25,7 @@ class CostTracker:
         self.output_tokens += usage["output_tokens"]
 
     def total(self) -> dict:
-        pricing = PRICING.get(self.model, PRICING["gemini-2.5-flash"])
+        pricing = PRICING.get(self.model, {"input": 0, "output": 0})
         cost = (self.input_tokens / 1_000_000) * pricing["input"] \
              + (self.output_tokens / 1_000_000) * pricing["output"]
 
