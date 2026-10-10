@@ -123,6 +123,7 @@ export const worker = new Worker("agent-queue", async (job) => {
         goal,
         tools: agent.tools,
         run_id: jobRun.id,
+        agent_id: agent.id,
         template: agent.template ?? undefined,
         instruction: asText(agent.instruction),
         email: wantsEmail ? agent.user?.email : undefined,

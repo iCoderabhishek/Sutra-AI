@@ -15,6 +15,7 @@ export type RunPayload = {
     instruction?: string;
     email?: string;
     model?: string;
+    agent_id?: string; // scopes the agent's memory across runs
 };
 
 export const triggerAgentRun = async (payload: RunPayload): Promise<AgentRun> => {

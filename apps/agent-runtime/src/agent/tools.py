@@ -4,11 +4,13 @@ from tools.scrapper import ScrapperTool
 from tools.search import WebSearchTool
 from tools.emailer import EmailTool
 from tools.feed import ReadFeedTool
+from tools.memory import MemoryTool
 
 TOOLS = [
     WebSearchTool(),
     ScrapperTool(),
     ReadFeedTool(),
+    MemoryTool(),
     EmailTool(),
 ]
 

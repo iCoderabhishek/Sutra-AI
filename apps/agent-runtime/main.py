@@ -92,6 +92,7 @@ async def start_run(body: RunRequest):
                     instruction=body.instruction,
                     email=body.email,
                     model=body.model,
+                    agent_id=body.agent_id,
                 )
         except Exception as e:
             await emit({"step": "Runtime Error", "status": "error", "content": str(e)})
