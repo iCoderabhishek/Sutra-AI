@@ -126,6 +126,7 @@ export const worker = new Worker("agent-queue", async (job) => {
         template: agent.template ?? undefined,
         instruction: asText(agent.instruction),
         email: wantsEmail ? agent.user?.email : undefined,
+        model: agent.model ?? undefined,
     });
 
     if (triggered.error) {
@@ -193,11 +194,14 @@ export const worker = new Worker("agent-queue", async (job) => {
         },
     });
 
-    const credits = Math.max(usdToCredits(finalUsdCost), 1);
-    const deducted = await deductCredits(agent.userId, credits);
+    let credits = 0;
+    if (totalTokens > 0 || finalUsdCost > 0) {
+        credits = Math.max(usdToCredits(finalUsdCost), 1);
+        const deducted = await deductCredits(agent.userId, credits);
 
-    if (!deducted) {
-        console.warn(`{worker} Could not deduct ${credits} credits from user ${agent.userId}`);
+        if (!deducted) {
+            console.warn(`{worker} Could not deduct ${credits} credits from user ${agent.userId}`);
+        }
     }
 
     console.log(`{worker} Run ${jobRun.id} ${failed ? "failed" : "succeeded"} — ${totalTokens} tokens, $${finalUsdCost.toFixed(4)} (LLM: $${costUsd.toFixed(4)}, Sidecar: $${sideCarCost.toFixed(4)})`);
