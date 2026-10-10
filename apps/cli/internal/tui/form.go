@@ -20,6 +20,7 @@ const (
 	fieldName formField = iota
 	fieldDesc
 	fieldGoal
+	fieldModel
 	fieldTools
 	fieldSchedule
 	fieldActive
@@ -37,9 +38,13 @@ type agentForm struct {
 
 	name, desc, cron textinput.Model
 	goal             textarea.Model
-	tools            map[api.ToolName]bool
-	toolCursor       int
-	active           bool
+
+	models      []api.LLMModel
+	modelCursor int
+
+	tools      map[api.ToolName]bool
+	toolCursor int
+	active     bool
 
 	focus  formField
 	saving bool
@@ -59,9 +64,16 @@ func newAgentForm(client *api.Client) *agentForm {
 	goal := textarea.New()
 	goal.Placeholder = "What should this agent do? e.g. Find today's top 5 AI news stories and email me a summary."
 	goal.ShowLineNumbers = false
-	goal.CharLimit = 4000
-	goal.SetHeight(4)
+	goal.CharLimit = 2000 // matches the runtime's input guardrail
+	goal.SetHeight(3)
 	goal.Prompt = ""
+	goal.FocusedStyle.CursorLine = lipgloss.NewStyle()
+	goal.KeyMap.InsertNewline.SetKeys("alt+enter")
+
+	models, err := client.GetLLMModels()
+	if err != nil || len(models) == 0 {
+		models = []api.LLMModel{{ID: "auto", Name: "Auto (Best Available)"}}
+	}
 
 	f := &agentForm{
 		client: client,
@@ -69,6 +81,7 @@ func newAgentForm(client *api.Client) *agentForm {
 		desc:   input("Optional one-line description", 200),
 		cron:   input("Optional, e.g. 0 9 * * *", 64),
 		goal:   goal,
+		models: models,
 		tools:  map[api.ToolName]bool{api.ToolWebSearch: true},
 		active: true,
 	}
@@ -137,18 +150,28 @@ func (f *agentForm) handleKey(msg tea.KeyMsg) (screen, tea.Cmd) {
 		f.setFocus(f.focus - 1)
 		return f, nil
 	case "down":
-		if !inGoal {
+		// In the goal box, ↓ moves the cursor until the last line, then leaves.
+		if !inGoal || f.goal.Line() >= f.goal.LineCount()-1 {
 			f.setFocus(f.focus + 1)
 			return f, nil
 		}
 	case "up":
-		if !inGoal {
+		if !inGoal || f.goal.Line() == 0 {
 			f.setFocus(f.focus - 1)
 			return f, nil
 		}
 	}
 
 	switch f.focus {
+	case fieldModel:
+		switch msg.String() {
+		case "left", "h":
+			f.modelCursor = (f.modelCursor - 1 + len(f.models)) % len(f.models)
+		case "right", "l":
+			f.modelCursor = (f.modelCursor + 1) % len(f.models)
+		}
+		return f, nil
+
 	case fieldTools:
 		switch msg.String() {
 		case "left", "h":
@@ -174,8 +197,8 @@ func (f *agentForm) handleKey(msg tea.KeyMsg) (screen, tea.Cmd) {
 		return f, nil
 	}
 
-	// Enter moves on from single-line inputs; in the goal box it adds a newline.
-	if msg.String() == "enter" && !inGoal {
+	// Enter moves on from text fields (alt+enter adds a line in the goal box).
+	if msg.String() == "enter" {
 		f.setFocus(f.focus + 1)
 		return f, nil
 	}
@@ -214,6 +237,7 @@ func (f *agentForm) validate() (api.CreateAgentRequest, string, formField) {
 		Name:   name,
 		Desc:   strings.TrimSpace(f.desc.Value()),
 		Prompt: map[string]string{"goal": goal},
+		Model:  f.models[f.modelCursor].ID,
 		Tools:  []api.ToolName{},
 		Status: api.StatusPaused,
 	}
@@ -265,7 +289,8 @@ func (f *agentForm) View() string {
 		if f.focus == field {
 			border = colorPrimary
 		}
-		return "  " + stylePanel.BorderForeground(border).Render(content)
+		// MarginLeft indents every line; a "  " prefix only shifted the top border.
+		return stylePanel.BorderForeground(border).MarginLeft(2).Render(content)
 	}
 
 	var tools []string
@@ -289,25 +314,36 @@ func (f *agentForm) View() string {
 		activeMark = "[✓]"
 	}
 
-	button := stylePanel.BorderForeground(colorBorder).Render("Create agent")
+	button := stylePanel.BorderForeground(colorBorder).MarginLeft(2).Render("Create agent")
 	if f.focus == fieldSubmit {
-		button = stylePanel.BorderForeground(colorAccent).Foreground(colorAccent).Bold(true).Render("Create agent")
+		button = stylePanel.BorderForeground(colorAccent).Foreground(colorAccent).Bold(true).MarginLeft(2).Render("▸ Create agent  (enter)")
+	}
+
+	modelName := "Auto (Best Available)"
+	if len(f.models) > 0 {
+		modelName = f.models[f.modelCursor].Name
+	}
+	modelSelector := "← " + modelName + " →"
+	if f.focus == fieldModel {
+		modelSelector = styleMenuSelected.Render(modelSelector)
+	} else {
+		modelSelector = styleText.Render(modelSelector)
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		label(fieldName, "Name"), box(fieldName, f.name.View()),
 		label(fieldDesc, "Description"), box(fieldDesc, f.desc.View()),
 		label(fieldGoal, "Goal"), box(fieldGoal, f.goal.View()),
+		label(fieldModel, "Model"),
+		"    "+modelSelector,
 		label(fieldTools, "Tools"),
 		"    "+strings.Join(tools, "   ")+"   "+styleMuted.Render(toolDesc),
-		"",
 		label(fieldSchedule, "Schedule (cron)"), box(fieldSchedule, f.cron.View()),
 		"    "+styleMuted.Render("0 9 * * * daily 9:00 · 0 * * * * hourly · 0 9 * * 1 Mondays · empty = manual only"),
-		"",
 		label(fieldActive, "Status")+"  "+styleText.Render(activeMark+" Active now")+
 			styleMuted.Render("  (unchecked = created paused)"),
 		"",
-		"  "+button,
+		button,
 	)
 
 	status := ""
@@ -318,6 +354,6 @@ func (f *agentForm) View() string {
 		status = lipgloss.NewStyle().Foreground(colorDanger).Render("✘ " + f.err)
 	}
 
-	keys := keyHints("tab", "next field", "space", "toggle", "←/→", "pick tool", "ctrl+s", "create", "esc", "cancel")
+	keys := keyHints("↑/↓ or tab", "move", "enter", "next / create", "space", "toggle", "←/→", "pick tool", "esc", "cancel")
 	return page{Title: "Create agent", Body: body, Status: status, Keys: keys}.render(f.width)
 }
