@@ -50,6 +50,15 @@ var (
 	styleStatusPaused   = lipgloss.NewStyle().Foreground(colorWarning)
 	styleStatusInactive = lipgloss.NewStyle().Foreground(colorMuted)
 
+	styleReportHeadline = lipgloss.NewStyle().Foreground(colorPrimary).Bold(true)
+	styleReportFinding  = lipgloss.NewStyle().Foreground(colorAccent)
+	styleReportBullet   = lipgloss.NewStyle().Foreground(colorPrimary)
+	styleReportTakeaway = lipgloss.NewStyle().
+				Border(lipgloss.ThickBorder(), false, false, false, true).
+				BorderForeground(colorAccent).
+				PaddingLeft(1).
+				Foreground(colorText)
+
 	styleToast = lipgloss.NewStyle().Foreground(colorWarning)
 	styleError = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
