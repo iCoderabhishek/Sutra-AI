@@ -1,4 +1,3 @@
-from google.genai import types
 from pydantic import ValidationError
 
 from tools.scrapper import ScrapperTool
@@ -47,12 +46,9 @@ def _clean_schema(schema: dict) -> dict:
     return schema
 
 
-def get_gemini_tool_declarations(allowed: frozenset[str] | None = None) -> types.Tool | None:
+def get_openai_tool_declarations(allowed: frozenset[str] | None = None) -> list[dict] | None:
     """
-    Convert the allowed tools into a single Gemini types.Tool.
-
-    Returns None when nothing is allowed; Gemini rejects a Tool with an empty
-    function_declarations list, so the caller must omit `tools` entirely.
+    Convert the allowed tools into a list of OpenAI function declarations.
     """
     names = ALL_TOOL_NAMES if allowed is None else allowed
     declarations = []
@@ -64,18 +60,19 @@ def get_gemini_tool_declarations(allowed: frozenset[str] | None = None) -> types
         raw_schema = tool.args_schema.model_json_schema()
         clean = _clean_schema(raw_schema)
 
-        declarations.append(
-            types.FunctionDeclaration(
-                name=tool.name,
-                description=tool.description,
-                parameters=clean,
-            )
-        )
+        declarations.append({
+            "type": "function",
+            "function": {
+                "name": tool.name,
+                "description": tool.description[:1024],
+                "parameters": clean
+            }
+        })
 
     if not declarations:
         return None
 
-    return types.Tool(function_declarations=declarations)
+    return declarations
 
 
 async def dispatch_tool(
