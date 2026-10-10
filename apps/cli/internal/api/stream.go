@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// StreamRunLogs connects to the sse endpoint for a run 
+// StreamRunLogs connects to the sse endpoint for a run
 // and yields TraceEvent objects as they arrive from the backend.
 func (c *Client) StreamRunLogs(ctx context.Context, runId string) (<-chan TraceEvent, <-chan error) {
 	eventChan := make(chan TraceEvent)
@@ -29,7 +29,7 @@ func (c *Client) StreamRunLogs(ctx context.Context, runId string) (<-chan TraceE
 		if c.sessionCookie != "" {
 			req.Header.Set("Authorization", "Bearer "+c.sessionCookie)
 		}
-		
+
 		req.Header.Set("Accept", "text/event-stream")
 		req.Header.Set("Cache-Control", "no-cache")
 		req.Header.Set("Connection", "keep-alive")
@@ -49,7 +49,7 @@ func (c *Client) StreamRunLogs(ctx context.Context, runId string) (<-chan TraceE
 		scanner := bufio.NewScanner(resp.Body)
 		for scanner.Scan() {
 			line := scanner.Text()
-			
+
 			if line == "" || strings.HasPrefix(line, ":") {
 				continue
 			}
