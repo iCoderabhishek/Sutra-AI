@@ -169,6 +169,7 @@ type ToolName string
 const (
 	ToolWebSearch ToolName = "web_search"
 	ToolScrapper  ToolName = "scrapper"
+	ToolReadFeed  ToolName = "read_feed"
 	ToolSendEmail ToolName = "send_email"
 )
 
@@ -180,6 +181,7 @@ type ToolInfo struct {
 var AllTools = []ToolInfo{
 	{ToolWebSearch, "Search the web"},
 	{ToolScrapper, "Read a web page as markdown"},
+	{ToolReadFeed, "Latest items from an RSS/Atom feed"},
 	{ToolSendEmail, "Email the result"},
 }
 
