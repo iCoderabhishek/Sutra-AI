@@ -22,6 +22,7 @@ const (
 	fieldGoal
 	fieldModel
 	fieldTools
+	fieldTelegram // only shown when the notify tool is checked
 	fieldSchedule
 	fieldActive
 	fieldSubmit
@@ -36,8 +37,8 @@ type agentCreatedMsg struct {
 type agentForm struct {
 	client *api.Client
 
-	name, desc, cron textinput.Model
-	goal             textarea.Model
+	name, desc, cron, telegram textinput.Model
+	goal                       textarea.Model
 
 	models      []api.LLMModel
 	modelCursor int
@@ -76,14 +77,15 @@ func newAgentForm(client *api.Client) *agentForm {
 	}
 
 	f := &agentForm{
-		client: client,
-		name:   input("Daily AI news", 80),
-		desc:   input("Optional one-line description", 200),
-		cron:   input("Optional, e.g. 0 9 * * *", 64),
-		goal:   goal,
-		models: models,
-		tools:  map[api.ToolName]bool{api.ToolWebSearch: true},
-		active: true,
+		client:   client,
+		name:     input("Daily AI news", 80),
+		desc:     input("Optional one-line description", 200),
+		cron:     input("Optional, e.g. 0 9 * * *", 64),
+		telegram: input("e.g. 123456789 (message the bot, then ask @userinfobot)", 32),
+		goal:     goal,
+		models:   models,
+		tools:    map[api.ToolName]bool{api.ToolWebSearch: true},
+		active:   true,
 	}
 	f.setFocus(fieldName)
 	return f
@@ -96,6 +98,7 @@ func (f *agentForm) setFocus(field formField) {
 	f.name.Blur()
 	f.desc.Blur()
 	f.cron.Blur()
+	f.telegram.Blur()
 	f.goal.Blur()
 	switch f.focus {
 	case fieldName:
@@ -104,9 +107,20 @@ func (f *agentForm) setFocus(field formField) {
 		f.desc.Focus()
 	case fieldGoal:
 		f.goal.Focus()
+	case fieldTelegram:
+		f.telegram.Focus()
 	case fieldSchedule:
 		f.cron.Focus()
 	}
+}
+
+// move steps focus by delta, skipping the Telegram field while notify is off.
+func (f *agentForm) move(delta formField) {
+	next := (f.focus + delta + fieldCount) % fieldCount
+	if next == fieldTelegram && !f.tools[api.ToolNotify] {
+		next = (next + delta + fieldCount) % fieldCount
+	}
+	f.setFocus(next)
 }
 
 func (f *agentForm) Update(msg tea.Msg) (screen, tea.Cmd) {
@@ -114,7 +128,7 @@ func (f *agentForm) Update(msg tea.Msg) (screen, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		f.width = msg.Width
 		w := min(max(msg.Width-10, 30), 80)
-		f.name.Width, f.desc.Width, f.cron.Width = w, w, w
+		f.name.Width, f.desc.Width, f.cron.Width, f.telegram.Width = w, w, w, w
 		f.goal.SetWidth(w)
 		return f, nil
 
@@ -144,20 +158,20 @@ func (f *agentForm) handleKey(msg tea.KeyMsg) (screen, tea.Cmd) {
 	case "ctrl+s":
 		return f.submit()
 	case "tab":
-		f.setFocus(f.focus + 1)
+		f.move(1)
 		return f, nil
 	case "shift+tab":
-		f.setFocus(f.focus - 1)
+		f.move(-1)
 		return f, nil
 	case "down":
 		// In the goal box, ↓ moves the cursor until the last line, then leaves.
 		if !inGoal || f.goal.Line() >= f.goal.LineCount()-1 {
-			f.setFocus(f.focus + 1)
+			f.move(1)
 			return f, nil
 		}
 	case "up":
 		if !inGoal || f.goal.Line() == 0 {
-			f.setFocus(f.focus - 1)
+			f.move(-1)
 			return f, nil
 		}
 	}
@@ -199,7 +213,7 @@ func (f *agentForm) handleKey(msg tea.KeyMsg) (screen, tea.Cmd) {
 
 	// Enter moves on from text fields (alt+enter adds a line in the goal box).
 	if msg.String() == "enter" {
-		f.setFocus(f.focus + 1)
+		f.move(1)
 		return f, nil
 	}
 
@@ -211,6 +225,8 @@ func (f *agentForm) handleKey(msg tea.KeyMsg) (screen, tea.Cmd) {
 		f.desc, cmd = f.desc.Update(msg)
 	case fieldGoal:
 		f.goal, cmd = f.goal.Update(msg)
+	case fieldTelegram:
+		f.telegram, cmd = f.telegram.Update(msg)
 	case fieldSchedule:
 		f.cron, cmd = f.cron.Update(msg)
 	}
@@ -223,20 +239,29 @@ func (f *agentForm) validate() (api.CreateAgentRequest, string, formField) {
 	name := strings.TrimSpace(f.name.Value())
 	goal := strings.TrimSpace(f.goal.Value())
 	cron := strings.Join(strings.Fields(f.cron.Value()), " ")
+	chatID := strings.TrimSpace(f.telegram.Value())
+	useNotify := f.tools[api.ToolNotify]
 
 	switch {
 	case name == "":
 		return api.CreateAgentRequest{}, "Give the agent a name.", fieldName
 	case goal == "":
 		return api.CreateAgentRequest{}, "Describe what the agent should do.", fieldGoal
+	case useNotify && !validChatID(chatID):
+		return api.CreateAgentRequest{}, "Telegram alerts need your numeric chat ID, e.g. 123456789.", fieldTelegram
 	case cron != "" && !validCron(cron):
 		return api.CreateAgentRequest{}, "Schedule must be a cron pattern with 5 or 6 fields, e.g. 0 9 * * *", fieldSchedule
+	}
+
+	prompt := map[string]string{"goal": goal}
+	if useNotify {
+		prompt["telegram_chat_id"] = chatID // read by the backend worker, not shown to the model
 	}
 
 	req := api.CreateAgentRequest{
 		Name:   name,
 		Desc:   strings.TrimSpace(f.desc.Value()),
-		Prompt: map[string]string{"goal": goal},
+		Prompt: prompt,
 		Model:  f.models[f.modelCursor].ID,
 		Tools:  []api.ToolName{},
 		Status: api.StatusPaused,
@@ -269,6 +294,20 @@ func (f *agentForm) submit() (screen, tea.Cmd) {
 		agent, err := client.CreateAgent(req)
 		return agentCreatedMsg{agent, err}
 	}
+}
+
+// validChatID accepts Telegram chat IDs: digits, with a leading "-" for groups.
+func validChatID(s string) bool {
+	s = strings.TrimPrefix(s, "-")
+	if len(s) < 5 || len(s) > 20 {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // validCron is a shape check only; the backend scheduler does the real parse.
@@ -330,6 +369,14 @@ func (f *agentForm) View() string {
 		modelSelector = styleText.Render(modelSelector)
 	}
 
+	telegramSection := ""
+	if f.tools[api.ToolNotify] {
+		telegramSection = lipgloss.JoinVertical(lipgloss.Left,
+			label(fieldTelegram, "Telegram chat ID"), box(fieldTelegram, f.telegram.View()),
+			"    "+styleMuted.Render("Send /start to the Sutra bot first, or it can't message you"),
+		)
+	}
+
 	body := lipgloss.JoinVertical(lipgloss.Left,
 		label(fieldName, "Name"), box(fieldName, f.name.View()),
 		label(fieldDesc, "Description"), box(fieldDesc, f.desc.View()),
@@ -339,6 +386,7 @@ func (f *agentForm) View() string {
 		label(fieldTools, "Tools"),
 		lipgloss.NewStyle().PaddingLeft(4).Width(max(f.width-8, 40)).Render(strings.Join(tools, "   ")),
 		"    "+styleMuted.Render("› "+toolDesc),
+		telegramSection,
 		label(fieldSchedule, "Schedule (cron)"), box(fieldSchedule, f.cron.View()),
 		"    "+styleMuted.Render("0 9 * * * daily 9:00 · 0 * * * * hourly · 0 9 * * 1 Mondays · empty = manual only"),
 		label(fieldActive, "Status")+"  "+styleText.Render(activeMark+" Active now")+

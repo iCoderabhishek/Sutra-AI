@@ -172,6 +172,7 @@ const (
 	ToolReadFeed  ToolName = "read_feed"
 	ToolMemory    ToolName = "memory"
 	ToolWatchPage ToolName = "watch_page"
+	ToolNotify    ToolName = "notify"
 	ToolSendEmail ToolName = "send_email"
 )
 
@@ -186,6 +187,7 @@ var AllTools = []ToolInfo{
 	{ToolReadFeed, "Latest items from an RSS/Atom feed"},
 	{ToolWatchPage, "Show what changed on a page since last run"},
 	{ToolMemory, "Remember findings, report only what's new"},
+	{ToolNotify, "Telegram alert when something new turns up"},
 	{ToolSendEmail, "Email the result"},
 }
 
