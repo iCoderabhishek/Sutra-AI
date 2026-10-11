@@ -14,3 +14,4 @@ class RunRequest(BaseModel):
     model: Optional[str] = None
     run_id: Optional[str] = None
     agent_id: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
