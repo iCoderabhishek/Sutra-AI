@@ -5,11 +5,13 @@ from tools.search import WebSearchTool
 from tools.emailer import EmailTool
 from tools.feed import ReadFeedTool
 from tools.memory import MemoryTool
+from tools.watch import WatchPageTool
 
 TOOLS = [
     WebSearchTool(),
     ScrapperTool(),
     ReadFeedTool(),
+    WatchPageTool(),
     MemoryTool(),
     EmailTool(),
 ]

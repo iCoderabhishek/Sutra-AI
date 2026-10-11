@@ -337,7 +337,8 @@ func (f *agentForm) View() string {
 		label(fieldModel, "Model"),
 		"    "+modelSelector,
 		label(fieldTools, "Tools"),
-		"    "+strings.Join(tools, "   ")+"   "+styleMuted.Render(toolDesc),
+		lipgloss.NewStyle().PaddingLeft(4).Width(max(f.width-8, 40)).Render(strings.Join(tools, "   ")),
+		"    "+styleMuted.Render("› "+toolDesc),
 		label(fieldSchedule, "Schedule (cron)"), box(fieldSchedule, f.cron.View()),
 		"    "+styleMuted.Render("0 9 * * * daily 9:00 · 0 * * * * hourly · 0 9 * * 1 Mondays · empty = manual only"),
 		label(fieldActive, "Status")+"  "+styleText.Render(activeMark+" Active now")+
