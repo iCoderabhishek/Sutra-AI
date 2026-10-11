@@ -85,7 +85,7 @@ def _configured_secrets() -> list[str]:
     """Values of every key/secret/password setting, so they can never be echoed."""
     values = []
     for name, value in settings.model_dump().items():
-        if any(word in name for word in ("KEY", "SECRET", "PASSWORD")):
+        if any(word in name for word in ("KEY", "SECRET", "PASSWORD", "TOKEN")):
             if isinstance(value, str) and len(value) >= 8:
                 values.append(value)
     return values
@@ -123,6 +123,11 @@ _INJECTION_PATTERNS = [
 ]
 
 
+def looks_like_injection(text: str) -> bool:
+    """True if text matches a known prompt-injection pattern."""
+    return any(p.search(text or "") for p in _INJECTION_PATTERNS)
+
+
 def check_input(goal: str, instruction: str | None) -> tuple[str, str | None]:
     """Return the cleaned goal and instruction, or raise InputRejected."""
     goal = clean_text(goal or "").strip()
@@ -136,7 +141,7 @@ def check_input(goal: str, instruction: str | None) -> tuple[str, str | None]:
         raise InputRejected(f"The instruction is {len(instruction)} characters; the limit is {MAX_INSTRUCTION_CHARS}.")
 
     for text in (goal, instruction or ""):
-        if any(p.search(text) for p in _INJECTION_PATTERNS):
+        if looks_like_injection(text):
             raise InputRejected(
                 "The goal looks like an attempt to override the agent's instructions. "
                 "Describe the task itself instead."
