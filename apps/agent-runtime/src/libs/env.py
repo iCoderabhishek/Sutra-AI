@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
+    TELEGRAM_BOT_TOKEN: str = ""
 
     # Safety limits
     MAX_RUN_COST_USD: float = 0.25
