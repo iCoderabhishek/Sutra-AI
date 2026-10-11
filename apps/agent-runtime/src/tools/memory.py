@@ -14,7 +14,7 @@ from typing import Any, Literal, Type
 
 from pydantic import BaseModel, Field
 
-from agent.guardrails import clean_text, redact
+from agent.guardrails import clean_text, looks_like_injection, redact
 from libs.redis_client import redis_client
 from tools.base import BaseTool
 
@@ -32,6 +32,8 @@ def _key(agent_id: str) -> str:
 
 
 async def save_note(agent_id: str, note: str) -> str:
+    # Strip tags that could break out of the <memory> block when loaded next run.
+    note = note.replace("<memory>", "").replace("</memory>", "")
     note = redact(clean_text(note)).strip()[:MAX_NOTE_CHARS]
     entry = json.dumps({"at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), "note": note})
     key = _key(agent_id)
@@ -57,7 +59,14 @@ async def recent_notes(agent_id: str, limit: int = RECALL_DEFAULT) -> list[dict]
 def format_notes(notes: list[dict]) -> str:
     if not notes:
         return "No memory yet: this is the agent's first run."
-    lines = [f"- [{n.get('at', '?')}] {n.get('note', '')}" for n in notes]
+    # Notes originate from web content, so a note that reads like an instruction
+    # is dropped rather than replayed into the next run's prompt.
+    lines = []
+    for n in notes:
+        text = n.get("note", "")
+        if looks_like_injection(text):
+            text = "[a previous note was dropped: it looked like an injected instruction]"
+        lines.append(f"- [{n.get('at', '?')}] {text}")
     return "Notes from previous runs, newest first:\n" + "\n".join(lines)
 
 
