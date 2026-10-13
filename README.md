@@ -1,167 +1,154 @@
-# Sutra — AI Agent Platform
+# Sutra
 
-A platform for creating scheduled AI agents that browse the web, research, and deliver results on a cron. Users define an agent once ("send me a morning briefing from these 5 sites every day at 8am"), and Sutra runs it on schedule, streams every reasoning step live, tracks token cost per run, and bills it against a credit balance.
+![Go](https://img.shields.io/badge/Go_1.27-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Python](https://img.shields.io/badge/Python_3.14-3776AB?style=flat-square&logo=python&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Bun](https://img.shields.io/badge/Bun-000000?style=flat-square&logo=bun&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=flat-square&logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=flat-square&logo=prisma&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
+![BullMQ](https://img.shields.io/badge/BullMQ-E0234E?style=flat-square)
+![OpenRouter](https://img.shields.io/badge/OpenRouter-6566F1?style=flat-square&logo=openrouter&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+[![Live](https://img.shields.io/badge/Live-sutraai.0bhishek.com-22C55E?style=flat-square)](https://sutraai.0bhishek.com)
 
-This repository contains the control plane (Node.js) and the agent runtime (Python).
+Scheduled AI agents you run from the terminal. Describe a job once, like "check this pricing page every morning", and Sutra runs it on a cron, streams each step live, remembers the last run, and alerts you on Telegram when something changes.
 
----
+I will add demo here ...
+
+## Links
+
+- **Live**: https://sutraai.0bhishek.com
+- **Repository**: https://github.com/iCoderabhishek/Sutra-AI
+- **Eval results**: [EVALS.MD](EVALS.MD)
 
 ## Why Sutra?
 
-Most "AI agent" projects are a single script wrapped around a framework like LangChain. Sutra is built to show what an agent product looks like as a system: a hand-written ReAct loop with no agent framework, a separate control plane that owns auth, billing, and scheduling, and a durable event pipeline that makes every step of a run observable, both while it's running and after it finishes.
+I wanted to build an agent as a full product, not a script on top of a framework: a hand-written ReAct loop where every step is traced and billed, a control plane for auth, credits and scheduling, and evals that separate code bugs from model mistakes.
 
----
+## Features
 
-## Architecture & Data Flow
+- Create, edit, pause, delete and run agents from a terminal UI
+- Cron schedules or manual runs, with every step streamed live
+- Memory between runs, so scheduled agents report only what changed
+- Telegram alerts and email delivery to the agent's owner
+- A structured report at the end of every run
+- Credits charged from each run's real cost
 
-![Architecture Diagram](assets/diagram/architecture.jpg)
+| Tool | What it does |
+|---|---|
+| `web_search` | Search the web (Tavily) |
+| `scrapper` | Read a page as markdown (Firecrawl) |
+| `read_feed` | Latest items from an RSS or Atom feed |
+| `watch_page` | Line diff of a page since the last run |
+| `memory` | Notes kept between runs |
+| `notify` | Telegram alert to the owner |
+| `send_email` | Email the result to the owner |
 
-Sutra is split into two services with a hard boundary. The Node.js backend is the only public-facing service. The Python runtime is private and only accepts requests from the backend.
+## Architecture
 
-**Authentication & API:** Users sign in with Google OAuth. Sessions are cookie-based, and every agent, run, and credit query is scoped to the authenticated user. Agents, runs, and credit balances are stored in PostgreSQL through Prisma.
+```mermaid
+flowchart LR
+    CLI[Go terminal UI] -->|REST + SSE| API[Express API]
+    API --> PG[(PostgreSQL)]
+    API -->|jobs| Q[(Redis / BullMQ)]
+    Cron[Cron scheduler] --> Q
+    Q --> W[Worker]
+    W -->|HTTP + shared secret| RT[FastAPI runtime]
+    RT --> Loop[ReAct loop]
+    Loop <-->|tool calling| LLM[OpenRouter]
+    Loop --> Tools[Tools]
+    Loop -->|events| RS[(Redis Streams)]
+    RS --> W
+```
 
-**Scheduling (BullMQ + Redis):**
-- Each active agent with a cron pattern is registered as a BullMQ repeatable job.
-- Manual triggers and scheduled triggers go through the same queue, so both paths run identical logic.
-- On boot, schedules are rebuilt from PostgreSQL. BullMQ stores repeatable jobs only in Redis, so without this step a Redis flush would silently stop every cron.
+1. A cron or manual trigger puts a job on BullMQ.
+2. The worker checks credits and calls the private Python runtime with a shared secret.
+3. The agent loops through tool calls, up to 10 steps, then writes its report.
+4. Each step goes to a Redis Stream and reaches the terminal over SSE.
+5. The trace and cost are saved to PostgreSQL, and credits are deducted.
 
-**Run Execution:**
-- A background worker takes the job, checks the user's credit balance, and marks the run `RUNNING`.
-- The worker calls the Python runtime over the internal network, authenticated with a shared secret, and passes the database run ID so both services refer to the same run.
-- The runtime starts the agent loop as a background task and returns right away.
+## Safety
 
-**The Agent Loop (Python + Gemini):**
-- A custom ReAct loop: the model decides on an action, a tool runs, the result goes back into the conversation, and the loop repeats until the model answers or hits an iteration cap.
-- Tools: web search (Tavily), page scraping (Firecrawl), email delivery (SMTP).
-- Uses Gemini's native function calling. Tool schemas are generated from Pydantic models.
-- Rate-limit and service-unavailable errors are retried with exponential backoff. Auth and bad-request errors fail immediately.
-- Input and output tokens are counted on every model call and converted to a running USD cost.
+Enforced in code, not left to the prompt:
 
-**Live Trace Streaming (Redis Streams + SSE):**
-- Every step the agent takes (tool called, tool finished, final answer, error) is written as a validated event to a per-run Redis Stream.
-- The backend consumes that stream and relays it to the client as Server-Sent Events.
-- When the run finishes, the full trace, token count, and cost are saved to the run record, and credits are deducted based on actual cost.
-- Clients viewing a finished run get the saved trace replayed from PostgreSQL, so history keeps working after the Redis stream expires.
+- Agents can only call the tools they were given
+- Tool output is marked as untrusted, and injected instructions are screened out
+- Email and Telegram recipients are fixed. The model only writes the message
+- URL tools refuse private and local addresses
+- API keys are redacted from tool output and reports
+- Each run is capped at 10 steps, $0.25 and 2 Telegram alerts
 
----
+## Evals
 
-## Technical Decisions & Tradeoffs
+![Sutra agent evals](assets/sutra_evals.png)
 
-**Redis Streams over Redis Pub/Sub for the trace pipeline:**
-- **Decision:** Write agent events to a Redis Stream per run instead of publishing them over Pub/Sub.
-- **Tradeoff:** Uses more memory than fire-and-forget Pub/Sub and needs TTLs to stay bounded. The benefit is durability: the backend starts a run and then subscribes, and with Pub/Sub every event emitted in that gap is lost. A stream replays from the beginning, so late subscribers still see the whole run.
+All 25 code-level tests pass. In the real-model eval, the agent refused an unsafe request and ignored a hidden prompt injection. A small 2.6B free model spotted a price change but skipped the alert and memory save. Details in [EVALS.MD](EVALS.MD).
 
-**Separate Python runtime instead of a single Node.js service:**
-- **Decision:** Keep the AI layer in Python (FastAPI) and the control plane in Node.js.
-- **Tradeoff:** Two deployables, a network hop, and shared-secret auth between them. In return, each language does what its ecosystem is good at: LLM and scraping SDKs on one side, queues, OAuth, and billing on the other. The runtime is also stateless, so it can be scaled or restarted without touching user-facing state.
+## Technical Decisions
 
-**Hand-written ReAct loop instead of LangChain or another agent framework:**
-- **Decision:** Implement the think → act → observe loop directly against the Gemini SDK.
-- **Tradeoff:** More code to maintain and none of a framework's built-in integrations. In exchange, the loop is fully transparent: every step is visible for tracing, every token is accounted for in billing, and retry and iteration limits are explicit.
-
-**Cost-based credit deduction, charged on completion:**
-- **Decision:** Charge credits from the real USD cost of each run, not a flat per-run fee.
-- **Tradeoff:** The final charge is only known after the run, so there's a pre-run balance check and a post-run deduction. The deduction is a single atomic conditional update, so concurrent runs can't push a balance negative.
-
-**Separate lifecycle states for agents and runs:**
-- **Decision:** Agents use `ACTIVE / PAUSED / INACTIVE` (set by the user). Runs use `QUEUED / RUNNING / SUCCEEDED / FAILED / INSUFFICIENT_CREDITS` (set by the system, with terminal states).
-- **Tradeoff:** Two enums instead of one, but "should this agent run?" and "how did this run go?" stay separate. A run rejected for insufficient credits is recorded apart from a real failure.
-
-**Security by default for infrastructure:**
-- **Decision:** All published ports are bound to loopback. Redis requires a password and has `CONFIG`, `MODULE`, `REPLICAOF`, and `DEBUG` disabled. The runtime refuses to boot without a strong shared secret. Docker Compose refuses to start if any required secret is missing.
-- **Tradeoff:** Local setup takes a few more minutes. In return, a misconfiguration fails loudly at startup instead of leaving an open Redis or an unauthenticated agent endpoint that anyone could use to burn API quota.
-
----
+- **Redis Streams over Pub/Sub**: a stream replays from the start, so no events are lost before the client subscribes. Costs more memory and needs a TTL.
+- **Separate Python runtime**: Python for the agent, Node.js for the control plane. Two services to run, but the runtime holds no user state.
+- **No agent framework**: more code to own, but every step and token is visible.
+- **Free models with fallback**: free to run, but quality varies by model, which the evals show.
+- **Credits from real cost**: a balance check before the run and an atomic deduction after, so parallel runs can't overspend.
 
 ## Tech Stack
 
-**Control Plane (`apps/backend`)**
-- Runtime: Bun / Node.js
-- Language: TypeScript
-- Framework: Express.js
-- Database: PostgreSQL (Prisma ORM)
-- Queue & Scheduling: BullMQ, Redis
-- Auth: Google OAuth, cookie sessions
+- **Terminal UI**: Go, Bubble Tea, Lip Gloss
+- **Backend**: Bun, TypeScript, Express, PostgreSQL, Prisma, BullMQ, Redis, Google OAuth
+- **Agent runtime**: Python, FastAPI, OpenRouter, Pydantic, Tavily, Firecrawl
+- **Infrastructure**: Docker Compose
 
-**Agent Runtime (`apps/agent-runtime`)**
-- Language: Python 3
-- Framework: FastAPI
-- LLM: Google Gemini (native function calling)
-- Tools: Tavily (search), Firecrawl (scraping), SMTP (email)
-- Validation: Pydantic
-- Event Transport: Redis Streams, Server-Sent Events
+## Run Locally
 
-**Infrastructure**
-- Docker, Docker Compose
+You need Docker, Bun, Go, an OpenRouter key, Tavily and Firecrawl keys, and a Google OAuth client. A Telegram bot token and SMTP are optional.
 
----
-
-## API Overview
-
-All routes are under `/api/v1` and require an authenticated session.
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| `POST` | `/agents` | Create an agent |
-| `GET` | `/agents` | List agents (paginated) |
-| `GET` | `/agents/:agentId` | Get an agent |
-| `PATCH` | `/agents/:agentId` | Update an agent and re-sync its schedule |
-| `DELETE` | `/agents/:agentId` | Soft-delete an agent and remove its schedule |
-| `POST` | `/agents/:agentId/run` | Trigger a run |
-| `GET` | `/runs` | List runs (filter by agent or status) |
-| `GET` | `/runs/:runId` | Get a run with its full trace |
-| `GET` | `/runs/:runId/stream` | Live SSE trace, or replay if the run has finished |
-| `GET` | `/credits` | Current credit balance |
-| `GET` | `/dashboard` | Aggregated agent, run, usage, and credit stats |
-
----
-
-## Run with Docker
-
-### Prerequisites
-- Docker & Docker Compose
-- Bun
-- API keys for Google Gemini, Tavily, and Firecrawl
-- A Google OAuth client
-
-### Installation & Execution
-
-1. **Clone the repository**
+1. **Clone**
    ```sh
-   git clone https://github.com/iCoderabhishek/sutra-ai-agent.git
-   cd sutra-ai-agent
+   git clone https://github.com/iCoderabhishek/Sutra-AI.git
+   cd Sutra-AI
    ```
 
-2. **Environment configuration**
+2. **Configure**: copy `.env.example` to `.env` in `apps/backend` and `apps/agent-runtime`. Use the same `AGENT_SHARED_SECRET` (32+ characters) in both.
 
-   Copy `.env.example` to `.env` in both `apps/backend` and `apps/agent-runtime`, then fill them in. Required secrets:
-   - `AGENT_SHARED_SECRET`: the same value in both files, at least 32 characters
-   - `REDIS_PASSWORD`, `POSTGRES_PASSWORD`, `SESSION_SECRET`
-
-   To generate a secret:
-   ```sh
-   python -c "import secrets; print(secrets.token_urlsafe(32))"
-   ```
-
-3. **Start the datastores and control plane**
+3. **Start the backend**
    ```sh
    cd apps/backend
    docker compose up --build -d
-   ```
-
-4. **Apply database migrations**
-   ```sh
    bunx prisma migrate dev --schema ../../packages/db/prisma/schema.prisma
    ```
 
-5. **Start the agent runtime** (joins the backend's Docker network)
+4. **Start the runtime**
    ```sh
    cd ../agent-runtime
    docker compose up --build -d
    ```
 
----
+5. **Open the terminal UI**
+   ```sh
+   cd ../cli
+   go run ./sutra
+   ```
 
-## Status
+For Telegram alerts, message your bot once, get your chat ID from @userinfobot, and paste it into the agent form with `notify` on.
 
-The control plane and agent runtime are complete. Now starting the fronend as CLI instead of a WEB. The backend already provides everything it would need, including the SSE trace stream.
+## Tests
+
+```sh
+# apps/agent-runtime
+python -m unittest tests.test_offline -v   # 25 tests, no API calls
+python -u tests/eval_agent.py --quick       # real model, max 4 requests
+
+# apps/cli
+go test ./...
+```
+
+## Known Limits
+
+- Small free models often skip steps in long tool chains
+- `watch_page` can't read pages that need JavaScript
+- The Telegram bot only sends messages, so chat IDs are pasted by hand
+- Free model runs are recorded as $0 cost
