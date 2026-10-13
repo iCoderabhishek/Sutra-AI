@@ -3,7 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/iCoderabhishek/Sutra-AI/internal/api"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/api"
 )
 
 // app is the root model. Home is always at the bottom; other screens are

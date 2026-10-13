@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/iCoderabhishek/Sutra-AI/internal/api"
-	"github.com/iCoderabhishek/Sutra-AI/internal/config"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/api"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/config"
 )
 
 func main() {

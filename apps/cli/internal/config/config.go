@@ -20,7 +20,8 @@ func getSessionPath() (string, error) {
 	appConfigDir := filepath.Join(configRoot, "sutraai")
 
 	// Ensure directory exists
-	if err := os.MkdirAll(appConfigDir, 0755); err != nil {
+	// 0700 / 0600: the session file holds a login token, so only the owner may read it.
+	if err := os.MkdirAll(appConfigDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -42,7 +43,7 @@ func SaveSession(tokenValue string) error {
 		return fmt.Errorf("failed to marshal session: %w", err)
 	}
 
-	if err := os.WriteFile(sessionPath, data, 0644); err != nil {
+	if err := os.WriteFile(sessionPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write session file: %w", err)
 	}
 

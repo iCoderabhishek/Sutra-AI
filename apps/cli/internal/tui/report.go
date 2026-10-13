@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/iCoderabhishek/Sutra-AI/internal/api"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/api"
 )
 
 // Renders an agent's final answer. Every report has the same layout:

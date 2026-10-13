@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/iCoderabhishek/Sutra-AI/internal/api"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/api"
 )
 
 // A client pointing nowhere: GetLLMModels fails and the form falls back to "auto".

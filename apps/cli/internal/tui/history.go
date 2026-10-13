@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/iCoderabhishek/Sutra-AI/internal/api"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/api"
 )
 
 // Run history: past runs, optionally for one agent. Enter opens the trace.
