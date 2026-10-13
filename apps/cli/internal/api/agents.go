@@ -54,8 +54,10 @@ func (c *Client) CreateAgent(payload CreateAgentRequest) (*Agent, error) {
 
 // UpdateAgent sends only the fields set on payload (PATCH semantics).
 func (c *Client) UpdateAgent(id string, payload UpdateAgentRequest) (*Agent, error) {
-	if err := ValidateTools(payload.Tools); err != nil {
-		return nil, err
+	if payload.Tools != nil {
+		if err := ValidateTools(*payload.Tools); err != nil {
+			return nil, err
+		}
 	}
 	var agent Agent
 

@@ -234,7 +234,7 @@ type UpdateAgentRequest struct {
 	Template    *string          `json:"template,omitempty"`
 	Instruction any              `json:"instruction,omitempty"`
 	Model       *string          `json:"model,omitempty"`
-	Tools       []ToolName       `json:"tools,omitempty"`
+	Tools       *[]ToolName      `json:"tools,omitempty"` // pointer so an empty list clears tools instead of being omitted
 	Schedule    *json.RawMessage `json:"schedule,omitempty"`
 	Status      *AgentStatus     `json:"status,omitempty"`
 }
