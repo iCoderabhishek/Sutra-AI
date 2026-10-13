@@ -29,8 +29,22 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
     })
 }
 
+// Only the CLI's local callback server may receive a login token. Without this
+// check, a crafted login link could send a user's token to any website.
+const isLoopbackRedirect = (value: string) => {
+    try {
+        const url = new URL(value);
+        return url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+    } catch {
+        return false;
+    }
+};
+
 export const redirectToGoogle = (req: Request, res: Response) => {
     const { cli_redirect } = req.query;
+    if (cli_redirect !== undefined && (typeof cli_redirect !== "string" || !isLoopbackRedirect(cli_redirect))) {
+        return res.status(400).json({ error: "cli_redirect must be a localhost URL" });
+    }
     // Encode cli_redirect into the state parameter to safely pass it through Google
     const state = cli_redirect ? Buffer.from(cli_redirect as string).toString('base64') : '';
     
@@ -101,6 +115,10 @@ export const getGoogleCallback = async (req: Request, res: Response, next: NextF
         }
 
         if (cliRedirect) {
+            // state comes back from the browser, so check it again here.
+            if (!isLoopbackRedirect(cliRedirect)) {
+                return res.status(400).json({ error: "Invalid CLI redirect" });
+            }
             const token = jwt.sign({ userId: user.id }, SESSION_SECRET, { expiresIn: '7d' });
             const redirectUrl = new URL(cliRedirect);
             redirectUrl.searchParams.append("token", token);
