@@ -1,4 +1,4 @@
-module github.com/iCoderabhishek/Sutra-AI
+module github.com/iCoderabhishek/Sutra-AI/apps/cli
 
 go 1.27.1
 

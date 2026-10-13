@@ -3,10 +3,18 @@ from pydantic import ValidationError
 from tools.scrapper import ScrapperTool
 from tools.search import WebSearchTool
 from tools.emailer import EmailTool
+from tools.feed import ReadFeedTool
+from tools.memory import MemoryTool
+from tools.watch import WatchPageTool
+from tools.notify import NotifyTool
 
 TOOLS = [
     WebSearchTool(),
     ScrapperTool(),
+    ReadFeedTool(),
+    WatchPageTool(),
+    MemoryTool(),
+    NotifyTool(),
     EmailTool(),
 ]
 

@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,7 +11,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/iCoderabhishek/Sutra-AI/internal/config"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/config"
 )
 
 func (c *Client) InitAuth() error {
@@ -47,7 +49,22 @@ func (c *Client) Login() error {
 		Handler: mux,
 	}
 
+	// A random state travels through the backend and back. Without it, any web
+	// page could hit the local callback and log the CLI into another account.
+	stateBytes := make([]byte, 16)
+	if _, err := rand.Read(stateBytes); err != nil {
+		return fmt.Errorf("failed to create login state: %w", err)
+	}
+	state := hex.EncodeToString(stateBytes)
+	q := callbackURL.Query()
+	q.Set("state", state)
+	callbackURL.RawQuery = q.Encode()
+
 	mux.HandleFunc(callbackURL.Path, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != state {
+			http.Error(w, "Login link expired or invalid. Start the login again from the CLI.", http.StatusBadRequest)
+			return
+		}
 		// The backend redirects with ?token= for the CLI flow
 		token := r.URL.Query().Get("token")
 
@@ -67,7 +84,7 @@ func (c *Client) Login() error {
 	}()
 	// open browser for oauth
 
-	loginURL := fmt.Sprintf("%s%s?cli_redirect=%s", c.baseURL, env.OAuthRoute, env.OAuthCallback)
+	loginURL := fmt.Sprintf("%s%s?cli_redirect=%s", c.baseURL, env.OAuthRoute, url.QueryEscape(callbackURL.String()))
 	fmt.Printf("Opening browser to authenticate: %s\n", loginURL)
 	if err := openBrowser(loginURL); err != nil {
 		return fmt.Errorf("failed to open browser: %w", err)

@@ -169,6 +169,10 @@ type ToolName string
 const (
 	ToolWebSearch ToolName = "web_search"
 	ToolScrapper  ToolName = "scrapper"
+	ToolReadFeed  ToolName = "read_feed"
+	ToolMemory    ToolName = "memory"
+	ToolWatchPage ToolName = "watch_page"
+	ToolNotify    ToolName = "notify"
 	ToolSendEmail ToolName = "send_email"
 )
 
@@ -180,6 +184,10 @@ type ToolInfo struct {
 var AllTools = []ToolInfo{
 	{ToolWebSearch, "Search the web"},
 	{ToolScrapper, "Read a web page as markdown"},
+	{ToolReadFeed, "Latest items from an RSS/Atom feed"},
+	{ToolWatchPage, "Show what changed on a page since last run"},
+	{ToolMemory, "Remember findings, report only what's new"},
+	{ToolNotify, "Telegram alert when something new turns up"},
 	{ToolSendEmail, "Email the result"},
 }
 
@@ -226,7 +234,7 @@ type UpdateAgentRequest struct {
 	Template    *string          `json:"template,omitempty"`
 	Instruction any              `json:"instruction,omitempty"`
 	Model       *string          `json:"model,omitempty"`
-	Tools       []ToolName       `json:"tools,omitempty"`
+	Tools       *[]ToolName      `json:"tools,omitempty"` // pointer so an empty list clears tools instead of being omitted
 	Schedule    *json.RawMessage `json:"schedule,omitempty"`
 	Status      *AgentStatus     `json:"status,omitempty"`
 }

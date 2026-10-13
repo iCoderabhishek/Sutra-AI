@@ -24,7 +24,8 @@ def get_free_models():
                 pricing = model.get("pricing", {})
                 prompt = pricing.get("prompt")
                 completion = pricing.get("completion")
-                if prompt == "0" and completion == "0":
+                supports_tools = "tools" in (model.get("supported_parameters") or [])
+                if prompt == "0" and completion == "0" and supports_tools:
                     free_models.append(model["id"])
             
 

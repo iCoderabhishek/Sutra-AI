@@ -15,6 +15,8 @@ export type RunPayload = {
     instruction?: string;
     email?: string;
     model?: string;
+    agent_id?: string; // scopes the agent's memory across runs
+    telegram_chat_id?: string; // destination for the notify tool
 };
 
 export const triggerAgentRun = async (payload: RunPayload): Promise<AgentRun> => {

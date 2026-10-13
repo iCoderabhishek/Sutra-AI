@@ -4,12 +4,31 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iCoderabhishek/Sutra-AI/internal/api"
-	"github.com/iCoderabhishek/Sutra-AI/internal/config"
-	"github.com/iCoderabhishek/Sutra-AI/internal/tui"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/api"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/config"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/tui"
 )
 
+// Set by release builds via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--version", "-v", "version":
+			fmt.Println("sutra", version)
+			return
+		case "--help", "-h", "help":
+			fmt.Println("sutra: scheduled AI agents in your terminal")
+			fmt.Println()
+			fmt.Println("Usage: sutra            open the terminal UI")
+			fmt.Println("       sutra --version  print the version")
+			fmt.Println()
+			fmt.Println("Server:", config.GetEnvConfig().BackendURL, "(override with SUTRA_BACKEND_URL)")
+			return
+		}
+	}
+
 	env := config.GetEnvConfig()
 	client := api.NewClient(env.BackendURL, "")
 

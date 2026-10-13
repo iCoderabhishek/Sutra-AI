@@ -119,14 +119,23 @@ export const worker = new Worker("agent-queue", async (job) => {
     // Delivery is opt-in: enabling the tool is what turns on emailing.
     const wantsEmail = agent.tools.includes("send_email");
 
+    // The Telegram chat ID lives in the agent's prompt JSON: { goal, telegram_chat_id }.
+    const promptBag = agent.prompt && typeof agent.prompt === "object" ? agent.prompt as Record<string, unknown> : {};
+    const chatId = promptBag.telegram_chat_id;
+    const telegramChatId = agent.tools.includes("notify") && (typeof chatId === "string" || typeof chatId === "number")
+        ? String(chatId).trim() || undefined
+        : undefined;
+
     const triggered = await triggerAgentRun({
         goal,
         tools: agent.tools,
         run_id: jobRun.id,
+        agent_id: agent.id,
         template: agent.template ?? undefined,
         instruction: asText(agent.instruction),
         email: wantsEmail ? agent.user?.email : undefined,
         model: agent.model ?? undefined,
+        telegram_chat_id: telegramChatId,
     });
 
     if (triggered.error) {

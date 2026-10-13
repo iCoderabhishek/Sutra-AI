@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/iCoderabhishek/Sutra-AI/internal/api"
+	"github.com/iCoderabhishek/Sutra-AI/apps/cli/internal/api"
 )
 
 // Agents screen: list on the left, details of the selected agent on the right.
@@ -195,6 +195,9 @@ func (m *agentsModel) handleKey(msg tea.KeyMsg) (screen, tea.Cmd) {
 			return agentChangedMsg{toast: verb + " “" + a.Name + "”", err: err}
 		}
 
+	case "e":
+		return m, push(newEditAgentForm(m.client, a))
+
 	case "d":
 		m.confirmDelete = true
 
@@ -238,7 +241,7 @@ func (m *agentsModel) View() string {
 		status = styleToast.Render("● " + m.toast)
 	}
 
-	keys := keyHints("↑/↓", "select", "enter", "run", "p", "pause/resume", "d", "delete", "h", "history", "n", "new", "esc", "back")
+	keys := keyHints("↑/↓", "select", "enter", "run", "e", "edit", "p", "pause/resume", "d", "delete", "h", "history", "n", "new", "esc", "back")
 	if m.pickMode {
 		keys = keyHints("↑/↓", "select", "enter", "run", "n", "new", "esc", "back")
 	}
