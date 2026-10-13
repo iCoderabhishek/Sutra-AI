@@ -102,6 +102,18 @@ All 25 code-level tests pass. In the real-model eval, the agent refused an unsaf
 - **Agent runtime**: Python, FastAPI, OpenRouter, Pydantic, Tavily, Firecrawl
 - **Infrastructure**: Docker Compose
 
+## Install the CLI
+
+Download the archive for your OS from [Releases](https://github.com/iCoderabhishek/Sutra-AI/releases), unzip it, and run `sutra`. Builds are available for Linux, macOS and Windows, on amd64 and arm64.
+
+Or with Go:
+
+```sh
+go install github.com/iCoderabhishek/Sutra-AI/apps/cli/sutra@latest
+```
+
+`go install` builds point at `localhost:4000`. Set `SUTRA_BACKEND_URL` to use another server.
+
 ## Run Locally
 
 You need Docker, Bun, Go, an OpenRouter key, Tavily and Firecrawl keys, and a Google OAuth client. A Telegram bot token and SMTP are optional.
