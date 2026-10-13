@@ -25,6 +25,17 @@ MAX_RETRIES = 3
 # How many times the model may fix a final reply that isn't valid report JSON.
 MAX_FORMAT_REPAIRS = 2
 
+DAILY_QUOTA_MESSAGE = (
+    "OpenRouter free-model daily limit reached. Try again after the daily reset, "
+    "or add OpenRouter credits to raise the limit."
+)
+
+
+def _is_daily_quota(error: Exception) -> bool:
+    """The free-tier daily cap is per account, so every other free model fails too."""
+    return "free-models-per-day" in str(error)
+
+
 async def _call_with_fallback(kwargs, selected_model: str | None = None):
     """
     Calls OpenRouter with fallback. If a model fails, it tries the next one in the FREE_MODELS list.
@@ -46,6 +57,8 @@ async def _call_with_fallback(kwargs, selected_model: str | None = None):
             return response
         except Exception as e:
             last_error = e
+            if _is_daily_quota(e):
+                raise Exception(DAILY_QUOTA_MESSAGE) from e
             print(f"[loop] Model {model} failed: {e}. Switching to next model...")
             await asyncio.sleep(1) # Small backoff before switching
             
