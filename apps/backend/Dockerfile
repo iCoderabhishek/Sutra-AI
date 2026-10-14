@@ -16,7 +16,9 @@ RUN bun install
 COPY packages/db packages/db/
 COPY apps/backend apps/backend/
 
-RUN cd packages/db && bun db:generate
+# prisma.config.ts requires DATABASE_URL, but generate never connects, so a
+# placeholder is enough. The real URL comes from compose at runtime.
+RUN cd packages/db && DATABASE_URL="postgresql://build:build@localhost:5432/build" bun db:generate
 
 WORKDIR /app/apps/backend
 
