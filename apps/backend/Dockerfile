@@ -1,8 +1,9 @@
 FROM oven/bun:1
 
+# Prisma's query engine needs OpenSSL.
 RUN apt-get update && \
-    apt-get install -y docker.io git && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends openssl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

@@ -1,0 +1,121 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/backend/**
+      - apps/agent-runtime/**
+      - packages/db/**
+      - deploy/**
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+# Never run two deploys at once, and never cancel one halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: apps/agent-runtime/.python-version
+          cache: pip
+          cache-dependency-path: apps/agent-runtime/requirements.txt
+
+      - name: Runtime offline tests
+        working-directory: apps/agent-runtime
+        # Placeholders only: the clients need a key to start, and the tests
+        # never call the real APIs.
+        env:
+          OPENROUTER_API_KEY: ci-placeholder-openrouter
+          TAVILY_API_KEY: tvly-ci-placeholder
+          FIRECRAWL_API_KEY: fc-ci-placeholder
+        run: |
+          pip install -r requirements.txt
+          python -m unittest tests.test_offline -v
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.0
+
+      - name: Backend typecheck
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+        run: |
+          bun install
+          (cd packages/db && bunx prisma generate)
+          (cd apps/backend && bun run typecheck)
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SSH_TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_KNOWN_HOSTS: ${{ secrets.VM_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_deploy
+          printf '%s\n' "$VM_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_deploy ~/.ssh/known_hosts
+          printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  StrictHostKeyChecking yes\n' > ~/.ssh/config
+
+      - name: Check out this commit on the VM
+        run: ssh "$SSH_TARGET" "cd /opt/sutra && git fetch --quiet origin && git checkout --quiet --force --detach ${{ github.sha }}"
+
+      - name: Write env files from secrets
+        env:
+          API_DOMAIN: ${{ vars.API_DOMAIN }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          AGENT_SHARED_SECRET: ${{ secrets.AGENT_SHARED_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          umask 077
+          mkdir -p out
+          kv() { for k in "$@"; do printf '%s=%s\n' "$k" "${!k}"; done; }
+          kv API_DOMAIN POSTGRES_PASSWORD REDIS_PASSWORD > out/.env
+          kv SESSION_SECRET AGENT_SHARED_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET > out/backend.env
+          kv AGENT_SHARED_SECRET OPENROUTER_API_KEY TAVILY_API_KEY FIRECRAWL_API_KEY TELEGRAM_BOT_TOKEN \
+             SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASSWORD > out/runtime.env
+          scp -q out/.env out/backend.env out/runtime.env "$SSH_TARGET:/opt/sutra/deploy/"
+          rm -rf out
+
+      - name: Build and restart
+        run: ssh "$SSH_TARGET" "bash /opt/sutra/deploy/deploy.sh"
+
+      - name: Check the public URL
+        env:
+          API_DOMAIN: ${{ vars.API_DOMAIN }}
+        run: |
+          for i in $(seq 1 20); do
+            curl -fsS "https://$API_DOMAIN/" && exit 0
+            sleep 5
+          done
+          echo "https://$API_DOMAIN/ did not respond" >&2
+          exit 1

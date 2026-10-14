@@ -1,0 +1,129 @@
+# Production stack for one VM. Started by deploy/deploy.sh.
+# Only Caddy is reachable from outside (80/443). Postgres, Redis and the agent
+# runtime are on the internal network only.
+#
+# Needs three files next to it, written by the deploy workflow from GitHub secrets:
+#   .env          POSTGRES_PASSWORD, REDIS_PASSWORD, API_DOMAIN (compose variables)
+#   backend.env   secrets for the Express backend
+#   runtime.env   secrets for the agent runtime
+
+name: sutra
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set}
+      POSTGRES_DB: sutra
+    volumes:
+      - sutra-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sutra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is not set}
+    command:
+      - sh
+      - -c
+      - >
+        exec redis-server
+        --requirepass "$$REDIS_PASSWORD"
+        --protected-mode yes
+        --maxmemory-policy noeviction
+        --appendonly yes
+        --rename-command CONFIG ""
+        --rename-command MODULE ""
+        --rename-command REPLICAOF ""
+        --rename-command SLAVEOF ""
+        --rename-command DEBUG ""
+    volumes:
+      - sutra-redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  app:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - backend.env
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/sutra
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      AGENT_BACKEND_URL: http://agent-runtime:8000
+      GOOGLE_CALLBACK_URL: https://${API_DOMAIN:?API_DOMAIN is not set}/api/v1/auth/callback
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  agent-runtime:
+    build:
+      context: ../apps/agent-runtime
+    restart: unless-stopped
+    env_file:
+      - runtime.env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PORT: "8000"
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+    networks:
+      - internal
+
+volumes:
+  sutra-db:
+  sutra-redis:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:
