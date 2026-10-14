@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-time setup for a fresh Debian or Ubuntu VM. Run it once over SSH:
-#   curl -fsSL https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/main/deploy/vm-setup.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/production/deploy/vm-setup.sh | bash
 # Then log out and back in so the docker group applies.
 set -euo pipefail
 
