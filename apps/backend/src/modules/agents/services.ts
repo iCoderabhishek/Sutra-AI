@@ -1,7 +1,7 @@
-import { prisma } from "@sutra/db";
+import { prisma, Prisma } from "@sutra/db";
 import type { Request, Response, NextFunction } from "express";
-import AgentSchema, { PaginationSchema } from "./schema";
-import { scheduleAgent } from "./scheduler"
+import AgentSchema, { AgentUpdateSchema, PaginationSchema } from "./schema";
+import { scheduleAgent, syncAgentSchedule, unscheduleAgent } from "./scheduler"
 import { runAgent } from "./runner";
 import { triggerAgentRun } from "../../libs/agent-proxy";
 import { deductCredits, hasEnoughCredits } from "../../libs/credits";
@@ -14,10 +14,10 @@ export const createAgent = async (req: Request, res: Response, next: NextFunctio
         return res.status(400).json({ message: "Invalid request body", error: result.error });
     }
 
-    const { name, desc, prompt, template, instruction, tools, schedule, status } = result.data;
+    const { name, desc, prompt, template, instruction, tools, schedule, status, model } = result.data;
 
-    if (!name || !prompt || !tools || !schedule) {
-        return res.status(400).json({ message: "All fields are required" });
+    if (!name || !prompt || !tools) {
+        return res.status(400).json({ message: "Name, prompt, and tools are required" });
     }
 
     if (status) {
@@ -34,6 +34,7 @@ export const createAgent = async (req: Request, res: Response, next: NextFunctio
                 prompt,
                 template,
                 instruction,
+                model,
                 tools,
                 schedule,
                 status,
@@ -154,33 +155,8 @@ export const triggerAgent = async (req: Request, res: Response, next: NextFuncti
         }
 
         const run = await prisma.jobRun.create({
-            data: {
-                agentId: agent.id,
-                status: 'ACTIVE',
-                trace: req.body.trace || {},
-                totalCost: req.body.totalCost || 0,
-                totalTokens: req.body.totalTokens || 0,
-                startedAt: req.body.startedAt || new Date(),
-                finishedAt: req.body.finishedAt || new Date(),
-
-            },
+            data: { agentId: agent.id, status: 'QUEUED' },
         });
-
-        const result = await triggerAgentRun({
-            goal: agent.prompt as string,
-            tools: agent.tools as string[]
-        })
-
-        if (result.error) {
-            return res.status(500).json({ message: "Failed to trigger agent" });
-        }
-
-        const deductedCredits = await deductCredits(req.user.userId, 1)
-        console.log("Credits deducted successfully", deductedCredits);
-
-
-        console.log("{Agent} Agent triggered successfully", result);
-
 
         await runAgent(agent, run);
 
@@ -188,7 +164,75 @@ export const triggerAgent = async (req: Request, res: Response, next: NextFuncti
 
 
     } catch (error) {
-        console.error(`Failed to trigger agent ${req.params?.agentId}:`, error);
-        return res.status(500).json({ message: "Failed to trigger agent", error });
+        return next(error);
+    }
+}
+
+
+export const updateAgent = async (req: Request, res: Response, next: NextFunction) => {
+
+    const { agentId } = req.params as { agentId: string };
+    const result = AgentUpdateSchema.safeParse(req.body);
+
+    if (!result.success) {
+        return res.status(400).json({ message: "Invalid request body" });
+    }
+
+    try {
+        const existing = await prisma.agent.findFirst({
+            where: { id: agentId, userId: req.user.userId },
+        });
+
+        if (!existing) {
+            return res.status(404).json({ message: "Agent not found" });
+        }
+
+        const { schedule, ...rest } = result.data;
+
+        const agent = await prisma.agent.update({
+            where: { id: agentId },
+            data: {
+                ...rest,
+                // Prisma.DbNull clears a nullable Json column; plain null is ignored.
+                ...(schedule === undefined
+                    ? {}
+                    : { schedule: schedule === null ? Prisma.DbNull : schedule }),
+            },
+        });
+
+        await syncAgentSchedule(agent);
+
+        return res.status(200).json(agent);
+    } catch (error) {
+        return next(error);
+    }
+}
+
+
+// Soft delete: JobRun has a required FK to Agent, so a hard delete would take
+// the run history and its cost records with it.
+export const deleteAgent = async (req: Request, res: Response, next: NextFunction) => {
+
+    const { agentId } = req.params as { agentId: string };
+
+    try {
+        const existing = await prisma.agent.findFirst({
+            where: { id: agentId, userId: req.user.userId },
+        });
+
+        if (!existing) {
+            return res.status(404).json({ message: "Agent not found" });
+        }
+
+        await unscheduleAgent(agentId);
+
+        await prisma.agent.update({
+            where: { id: agentId },
+            data: { status: "INACTIVE", schedule: Prisma.DbNull },
+        });
+
+        return res.status(200).json({ message: "Agent deleted", id: agentId });
+    } catch (error) {
+        return next(error);
     }
 }

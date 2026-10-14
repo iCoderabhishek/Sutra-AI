@@ -1,0 +1,3 @@
+# Written on the VM by the deploy workflow from GitHub secrets.
+.env
+*.env

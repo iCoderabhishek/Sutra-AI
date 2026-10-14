@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+openai
+tavily-python
+google-genai
+firecrawl-py
+resend
+tiktoken
+pydantic
+pydantic-settings
+redis
+python-dotenv
+httpx
+rich

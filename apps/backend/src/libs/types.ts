@@ -1,7 +1,6 @@
 export interface RunUsage {
-    pageScraped: number;
-    promptTokens: number;
-    completionTokens: number
+    pagesScraped: number;
+    emailsSent: number;
 }
 
 
@@ -10,4 +9,5 @@ export interface AgentRun {
     success?: boolean;
     message?: string;
     runId?: string;
+    run_id?: string;
 }

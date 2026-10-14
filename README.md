@@ -1,159 +1,166 @@
-# Turborepo starter
+# Sutra
 
-This Turborepo starter is maintained by the Turborepo core team.
+![Go](https://img.shields.io/badge/Go_1.27-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Python](https://img.shields.io/badge/Python_3.14-3776AB?style=flat-square&logo=python&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Bun](https://img.shields.io/badge/Bun-000000?style=flat-square&logo=bun&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=flat-square&logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=flat-square&logo=prisma&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
+![BullMQ](https://img.shields.io/badge/BullMQ-E0234E?style=flat-square)
+![OpenRouter](https://img.shields.io/badge/OpenRouter-6566F1?style=flat-square&logo=openrouter&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+[![Live](https://img.shields.io/badge/Live-sutraai.0bhishek.com-22C55E?style=flat-square)](https://sutraai.0bhishek.com)
 
-## Using this example
+Scheduled AI agents you run from the terminal. Describe a job once, like "check this pricing page every morning", and Sutra runs it on a cron, streams each step live, remembers the last run, and alerts you on Telegram when something changes.
 
-Run the following command:
+I will add demo here ...
 
-```sh
-npx create-turbo@latest
+## Links
+
+- **Live**: https://sutraai.0bhishek.com
+- **Repository**: https://github.com/iCoderabhishek/Sutra-AI
+- **Eval results**: [EVALS.MD](EVALS.MD)
+
+## Why Sutra?
+
+I wanted to build an agent as a full product, not a script on top of a framework: a hand-written ReAct loop where every step is traced and billed, a control plane for auth, credits and scheduling, and evals that separate code bugs from model mistakes.
+
+## Features
+
+- Create, edit, pause, delete and run agents from a terminal UI
+- Cron schedules or manual runs, with every step streamed live
+- Memory between runs, so scheduled agents report only what changed
+- Telegram alerts and email delivery to the agent's owner
+- A structured report at the end of every run
+- Credits charged from each run's real cost
+
+| Tool | What it does |
+|---|---|
+| `web_search` | Search the web (Tavily) |
+| `scrapper` | Read a page as markdown (Firecrawl) |
+| `read_feed` | Latest items from an RSS or Atom feed |
+| `watch_page` | Line diff of a page since the last run |
+| `memory` | Notes kept between runs |
+| `notify` | Telegram alert to the owner |
+| `send_email` | Email the result to the owner |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    CLI[Go terminal UI] -->|REST + SSE| API[Express API]
+    API --> PG[(PostgreSQL)]
+    API -->|jobs| Q[(Redis / BullMQ)]
+    Cron[Cron scheduler] --> Q
+    Q --> W[Worker]
+    W -->|HTTP + shared secret| RT[FastAPI runtime]
+    RT --> Loop[ReAct loop]
+    Loop <-->|tool calling| LLM[OpenRouter]
+    Loop --> Tools[Tools]
+    Loop -->|events| RS[(Redis Streams)]
+    RS --> W
 ```
 
-## What's inside?
+1. A cron or manual trigger puts a job on BullMQ.
+2. The worker checks credits and calls the private Python runtime with a shared secret.
+3. The agent loops through tool calls, up to 10 steps, then writes its report.
+4. Each step goes to a Redis Stream and reaches the terminal over SSE.
+5. The trace and cost are saved to PostgreSQL, and credits are deducted.
 
-This Turborepo includes the following packages/apps:
+## Safety
 
-### Apps and Packages
+Enforced in code, not left to the prompt:
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- Agents can only call the tools they were given
+- Tool output is marked as untrusted, and injected instructions are screened out
+- Email and Telegram recipients are fixed. The model only writes the message
+- URL tools refuse private and local addresses
+- API keys are redacted from tool output and reports
+- Each run is capped at 10 steps, $0.25 and 2 Telegram alerts
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+## Evals
 
-### Utilities
+![Sutra agent evals](assets/sutra_evals.png)
 
-This Turborepo has some additional tools already setup for you:
+All 25 code-level tests pass. In the real-model eval, the agent refused an unsafe request and ignored a hidden prompt injection. A small 2.6B free model spotted a price change but skipped the alert and memory save. Details in [EVALS.MD](EVALS.MD).
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+## Technical Decisions
 
-### Build
+- **Redis Streams over Pub/Sub**: a stream replays from the start, so no events are lost before the client subscribes. Costs more memory and needs a TTL.
+- **Separate Python runtime**: Python for the agent, Node.js for the control plane. Two services to run, but the runtime holds no user state.
+- **No agent framework**: more code to own, but every step and token is visible.
+- **Free models with fallback**: free to run, but quality varies by model, which the evals show.
+- **Credits from real cost**: a balance check before the run and an atomic deduction after, so parallel runs can't overspend.
 
-To build all apps and packages, run the following command:
+## Tech Stack
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+- **Terminal UI**: Go, Bubble Tea, Lip Gloss
+- **Backend**: Bun, TypeScript, Express, PostgreSQL, Prisma, BullMQ, Redis, Google OAuth
+- **Agent runtime**: Python, FastAPI, OpenRouter, Pydantic, Tavily, Firecrawl
+- **Infrastructure**: Docker Compose
 
-```sh
-cd my-turborepo
-turbo build
-```
+## Install the CLI
 
-Without global `turbo`, use your package manager:
+Download the archive for your OS from [Releases](https://github.com/iCoderabhishek/Sutra-AI/releases), unzip it, and run `sutra`. Builds are available for Linux, macOS and Windows, on amd64 and arm64.
 
-```sh
-cd my-turborepo
-npx turbo build
-bun exec turbo build
-bun exec turbo build
-```
-
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+Or with Go:
 
 ```sh
-turbo build --filter=docs
+go install github.com/iCoderabhishek/Sutra-AI/apps/cli/sutra@latest
 ```
 
-Without global `turbo`:
+`go install` builds point at `localhost:4000`. Set `SUTRA_BACKEND_URL` to use another server.
+
+## Run Locally
+
+You need Docker, Bun, Go, an OpenRouter key, Tavily and Firecrawl keys, and a Google OAuth client. A Telegram bot token and SMTP are optional.
+
+1. **Clone**
+   ```sh
+   git clone https://github.com/iCoderabhishek/Sutra-AI.git
+   cd Sutra-AI
+   ```
+
+2. **Configure**: copy `.env.example` to `.env` in `apps/backend` and `apps/agent-runtime`. Use the same `AGENT_SHARED_SECRET` (32+ characters) in both.
+
+3. **Start the backend**
+   ```sh
+   cd apps/backend
+   docker compose up --build -d
+   bunx prisma migrate dev --schema ../../packages/db/prisma/schema.prisma
+   ```
+
+4. **Start the runtime**
+   ```sh
+   cd ../agent-runtime
+   docker compose up --build -d
+   ```
+
+5. **Open the terminal UI**
+   ```sh
+   cd ../cli
+   go run ./sutra
+   ```
+
+For Telegram alerts, message your bot once, get your chat ID from @userinfobot, and paste it into the agent form with `notify` on.
+
+## Tests
 
 ```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+# apps/agent-runtime
+python -m unittest tests.test_offline -v   # 25 tests, no API calls
+python -u tests/eval_agent.py --quick       # real model, max 4 requests
+
+# apps/cli
+go test ./...
 ```
 
-### Develop
+## Known Limits
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- Small free models often skip steps in long tool chains
+- `watch_page` can't read pages that need JavaScript
+- The Telegram bot only sends messages, so chat IDs are pasted by hand
+- Free model runs are recorded as $0 cost
