@@ -15,6 +15,11 @@ import { reconcileSchedules } from '../modules/agents/scheduler'
 
 const app = express()
 
+// In production the app sits behind Caddy, which terminates HTTPS. Trusting the
+// first proxy lets Express see the request as secure, so the secure session
+// cookie can be set during the Google callback.
+app.set("trust proxy", 1)
+
 app.use(express.json())
 const PORT = process.env.PORT || 4000
 

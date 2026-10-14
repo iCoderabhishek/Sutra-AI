@@ -1,0 +1,10 @@
+# HTTPS for the backend. Caddy gets and renews the certificate automatically,
+# as long as API_DOMAIN points at this VM and ports 80/443 are open.
+{$API_DOMAIN} {
+	encode gzip
+
+	reverse_proxy app:4000 {
+		# Send SSE trace events to the CLI as soon as they arrive.
+		flush_interval -1
+	}
+}
