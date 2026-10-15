@@ -33,6 +33,10 @@ type (
 		run   *api.JobRun
 		err   error
 	}
+	reportSavedMsg struct {
+		path string
+		err  error
+	}
 )
 
 type runModel struct {
@@ -53,6 +57,9 @@ type runModel struct {
 	streaming bool
 	streamErr error
 	final     *api.JobRun
+
+	saveNote string // result of the last "save" key press
+	saveErr  bool
 
 	vp            viewport.Model
 	spin          spinner.Model
@@ -133,11 +140,24 @@ func (m *runModel) Update(msg tea.Msg) (screen, tea.Cmd) {
 			m.final = msg.run
 		}
 
+	case reportSavedMsg:
+		if msg.err != nil {
+			m.saveNote, m.saveErr = "Couldn't save: "+msg.err.Error(), true
+		} else {
+			m.saveNote, m.saveErr = "Saved to "+msg.path, false
+		}
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc", "q":
 			m.cancel()
 			return m, pop("")
+		case "s":
+			if cmd := m.saveReport(); cmd != nil {
+				return m, cmd
+			}
+			m.saveNote, m.saveErr = "Nothing to save yet, wait for the final answer.", true
+			return m, nil
 		case "g":
 			m.vp.GotoTop()
 			return m, nil
@@ -168,6 +188,45 @@ func (m *runModel) add(ev api.TraceEvent) {
 		}
 	}
 	m.trace = append(m.trace, ev)
+}
+
+// finalAnswer returns the content of the run's "Final Answer" step, if any.
+func (m *runModel) finalAnswer() (string, bool) {
+	for i := len(m.trace) - 1; i >= 0; i-- {
+		ev := m.trace[i]
+		if ev.Step == "Final Answer" && ev.Content != nil && strings.TrimSpace(*ev.Content) != "" {
+			return *ev.Content, true
+		}
+	}
+	return "", false
+}
+
+// saveReport writes the final answer to a Markdown file, off the UI thread.
+// It returns nil when there is no answer to save yet.
+func (m *runModel) saveReport() tea.Cmd {
+	content, ok := m.finalAnswer()
+	if !ok {
+		return nil
+	}
+	when := time.Now()
+	if m.final != nil {
+		when = m.final.CreatedAt
+		if m.final.FinishedAt != nil {
+			when = *m.final.FinishedAt
+		}
+	}
+	when = when.Local()
+	agentName, runID := m.agentName, m.runID
+	return func() tea.Msg {
+		var doc string
+		if r, ok := api.ParseReport(content); ok {
+			doc = reportMarkdown(r, agentName, runID, when)
+		} else {
+			doc = plainMarkdown(content, agentName, runID, when)
+		}
+		path, err := writeExport(saveDir(), exportName(agentName, runID, when), doc)
+		return reportSavedMsg{path, err}
+	}
 }
 
 func sameIteration(a, b *int) bool {
@@ -258,13 +317,22 @@ func (m *runModel) View() string {
 	)
 
 	status := ""
-	if m.streamErr != nil {
+	switch {
+	case m.saveNote != "" && m.saveErr:
+		status = lipgloss.NewStyle().Foreground(colorDanger).Render("✘ " + m.saveNote)
+	case m.saveNote != "":
+		status = lipgloss.NewStyle().Foreground(colorSuccess).Render("✔ " + m.saveNote)
+	case m.streamErr != nil:
 		status = lipgloss.NewStyle().Foreground(colorDanger).Render("✘ " + m.streamErr.Error())
-	} else if !m.vp.AtBottom() && m.streaming {
+	case !m.vp.AtBottom() && m.streaming:
 		status = styleToast.Render("● new steps below · press G to follow")
 	}
 
-	keys := keyHints("↑/↓", "scroll", "g/G", "top/bottom", "esc", "back")
+	hints := []string{"↑/↓", "scroll", "g/G", "top/bottom"}
+	if _, ok := m.finalAnswer(); ok {
+		hints = append(hints, "s", "save .md")
+	}
+	keys := keyHints(append(hints, "esc", "back")...)
 	return page{Title: m.agentName, Body: body, Status: status, Keys: keys}.render(m.width)
 }
 
