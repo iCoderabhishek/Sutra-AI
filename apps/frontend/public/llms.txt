@@ -1,0 +1,41 @@
+# Sutra AI
+
+> Sutra is an open-source AI agent CLI. You describe a job once in your terminal, like "check this pricing page every morning", and Sutra runs it as an AI agent on a cron schedule, streams each step live, remembers the last run, and alerts you on Telegram when something changes.
+
+Built by Abhishek Jha (https://0bhishek.com). Licensed MIT.
+
+## Install
+
+- macOS / Linux: `curl -fsSL https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/HEAD/scripts/install.sh | sh`
+- Windows (PowerShell): `irm https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/HEAD/scripts/install.ps1 | iex`
+- Then run `sutra`.
+
+## Features
+
+- Create, edit, pause, delete and run agents from a terminal UI
+- Cron schedules or manual runs, with every step streamed live
+- Memory between runs, so scheduled agents report only what changed
+- Telegram alerts and email delivery to the agent's owner
+- A structured report at the end of every run
+- Credits charged from each run's real cost
+- Each run is capped at 10 steps, $0.25 and 2 Telegram alerts
+
+## Agent tools
+
+- web_search: search the web (Tavily)
+- scrapper: read a page as markdown (Firecrawl)
+- read_feed: latest items from an RSS or Atom feed
+- watch_page: line diff of a page since the last run
+- memory: notes kept between runs
+- notify: Telegram alert to the owner
+- send_email: email the result to the owner
+
+## Docs
+
+- [README](https://github.com/iCoderabhishek/Sutra-AI#readme): install, features, architecture, safety
+- [Eval results](https://github.com/iCoderabhishek/Sutra-AI/blob/HEAD/EVALS.MD)
+- [Source code](https://github.com/iCoderabhishek/Sutra-AI)
+
+## Contact
+
+- Email: connect@0bhishek.com
