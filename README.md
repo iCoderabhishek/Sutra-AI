@@ -32,7 +32,13 @@ irm https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/HEAD/scripts/insta
 
 Then run `sutra`. More options in [Install the CLI](#install-the-cli).
 
-I will add demo here ...
+
+## Demonstration
+
+
+https://github.com/user-attachments/assets/43040f39-32f9-47fe-9cfa-ee2c4b9b6b28
+
+
 
 ## Links
 
