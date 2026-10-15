@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -32,8 +33,9 @@ func (c *Client) Logout() error {
 // Login opens the browser for OAuth and starts a local server to receive the callback.
 func (c *Client) Login() error {
 
-	cookieChan := make(chan string)
-	errChan := make(chan error)
+	// Buffered, so a late browser callback can't block a handler forever.
+	cookieChan := make(chan string, 1)
+	errChan := make(chan error, 1)
 
 	env := config.GetEnvConfig()
 
@@ -42,12 +44,27 @@ func (c *Client) Login() error {
 		return fmt.Errorf("invalid OAuth callback URL: %w", err)
 	}
 
-	// local http server to listen callback
-	mux := http.NewServeMux()
-	server := &http.Server{
-		Addr:    env.LocalServerAddr,
-		Handler: mux,
+	// Bind before opening the browser. If the usual port is taken (another app,
+	// or an older sutra still running), use a free port instead; the backend
+	// accepts any localhost callback.
+	ln, err := net.Listen("tcp", env.LocalServerAddr)
+	if err != nil {
+		ln, err = net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return fmt.Errorf("failed to start local login server: %w", err)
+		}
+		callbackURL.Host = fmt.Sprintf("localhost:%d", ln.Addr().(*net.TCPAddr).Port)
 	}
+
+	mux := http.NewServeMux()
+	server := &http.Server{Handler: mux}
+	// Always release the port, including on timeout or error, so the next
+	// login attempt in the same session can bind again.
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	}()
 
 	// A random state travels through the backend and back. Without it, any web
 	// page could hit the local callback and log the CLI into another account.
@@ -70,16 +87,25 @@ func (c *Client) Login() error {
 
 		if token == "" {
 			http.Error(w, "No auth token received", http.StatusBadRequest)
-			errChan <- fmt.Errorf("no token received in callback")
+			select {
+			case errChan <- fmt.Errorf("no token received in callback"):
+			default:
+			}
 			return
 		}
 
 		fmt.Fprintf(w, "<html><body><h2>Authentication successful!</h2><p>You can close this window and return to the CLI.</p></body></html>")
-		cookieChan <- token
+		select {
+		case cookieChan <- token:
+		default:
+		}
 	})
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			errChan <- fmt.Errorf("failed to start local server: %w", err)
+		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+			select {
+			case errChan <- fmt.Errorf("local login server stopped: %w", err):
+			default:
+			}
 		}
 	}()
 	// open browser for oauth
@@ -98,12 +124,6 @@ func (c *Client) Login() error {
 		return err
 	case <-time.After(3 * time.Minute):
 		return fmt.Errorf("authentication timed out")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		fmt.Printf("Warning: failed to shutdown local server: %v\n", err)
 	}
 
 	if err := config.SaveSession(sessionCookie); err != nil {

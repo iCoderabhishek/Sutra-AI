@@ -61,8 +61,17 @@ jobs:
     environment: production
     env:
       SSH_TARGET: ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}
+      # Accept API_DOMAIN as either a variable or a secret.
+      API_DOMAIN: ${{ vars.API_DOMAIN || secrets.API_DOMAIN }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check required settings
+        run: |
+          if [ -z "$API_DOMAIN" ]; then
+            echo "API_DOMAIN is empty. Add it under Settings > Environments > production (e.g. api.sutraai.0bhishek.com)." >&2
+            exit 1
+          fi
 
       - name: Set up SSH
         env:
@@ -80,7 +89,6 @@ jobs:
 
       - name: Write env files from secrets
         env:
-          API_DOMAIN: ${{ vars.API_DOMAIN }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
@@ -110,8 +118,6 @@ jobs:
         run: ssh "$SSH_TARGET" "bash /opt/sutra/deploy/deploy.sh"
 
       - name: Check the public URL
-        env:
-          API_DOMAIN: ${{ vars.API_DOMAIN }}
         run: |
           for i in $(seq 1 20); do
             curl -fsS "https://$API_DOMAIN/" && exit 0

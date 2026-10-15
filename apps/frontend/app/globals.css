@@ -1,26 +1,219 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #07050d;
+  --foreground: #ece8f5;
+  --muted: #9a93ad;
+  --line: rgba(196, 181, 253, 0.14);
+  --violet: #8b5cf6;
+  --glow: #c084fc;
+  --copper: #e8a87c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-violet: var(--violet);
+  --color-glow: var(--glow);
+  --color-copper: var(--copper);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-orbitron);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--violet);
+  color: #fff;
+}
+
+/* Film grain over the whole page, like the inspiration's textured backdrop */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Faint engineering grid that fades in from the right edge */
+.grid-fade {
+  background-image:
+    linear-gradient(to right, rgba(196, 181, 253, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(196, 181, 253, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to left, #000 0%, transparent 55%);
+}
+
+/* Chrome headline, brushed-metal look from the reference */
+.chrome {
+  background: linear-gradient(
+    176deg,
+    #ffffff 0%,
+    #d9d4e6 38%,
+    #8f88a3 52%,
+    #f4f1fa 64%,
+    #b9b2c9 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Angled cut corners (top-right + bottom-left), the reference's signature */
+.cut {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+.cut-lg {
+  clip-path: polygon(0 0, calc(100% - 40px) 0, 100% 40px, 100% 100%, 40px 100%, 0 calc(100% - 40px));
+}
+
+/* Hairline border that survives clip-path: wrapper paints the line colour */
+.edge {
+  background: var(--line);
+  padding: 1px;
+}
+
+/* Metallic CTA */
+.btn-metal {
+  background: linear-gradient(180deg, #f6f3fb 0%, #c9c2d8 100%);
+  color: #120c1f;
+  transition: filter 200ms ease, transform 200ms ease;
+}
+.btn-metal:active {
+  transform: translateY(1px);
+}
+
+/* CTA: a slow idle glow pulse, brighter on hover */
+@keyframes cta-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(192, 132, 252, 0)); }
+  50% { filter: drop-shadow(0 0 14px rgba(192, 132, 252, 0.45)); }
+}
+.cta {
+  animation: cta-pulse 3.6s ease-in-out infinite;
+}
+.cta:hover,
+.cta:focus-within {
+  animation: none;
+  filter: drop-shadow(0 0 20px rgba(192, 132, 252, 0.65));
+}
+
+/* Spark burst thrown off the CTA */
+@keyframes burst {
+  0% { transform: rotate(var(--a)) translateX(0) scale(1); opacity: 1; }
+  100% { transform: rotate(var(--a)) translateX(var(--r)) scale(0.3); opacity: 0; }
+}
+.burst {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 9999px;
+  box-shadow: 0 0 6px 1px rgba(192, 132, 252, 0.9);
+  animation: burst 750ms cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+}
+
+/* Light sweep across the chrome headline every few seconds */
+@keyframes sheen {
+  0%, 62% { background-position: 160% 0, 0 0; }
+  100% { background-position: -60% 0, 0 0; }
+}
+.sheen {
+  background:
+    linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.95) 50%, rgba(233, 213, 255, 0.6) 53%, transparent 60%),
+    linear-gradient(176deg, #ffffff 0%, #d9d4e6 38%, #8f88a3 52%, #f4f1fa 64%, #b9b2c9 100%);
+  background-size: 250% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sheen 7s ease-in-out infinite;
+}
+
+/* Violet smoke drifting behind the portrait */
+@keyframes haze-a {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(-14%, -8%, 0) rotate(18deg) scale(1.2); }
+}
+@keyframes haze-b {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1.05); }
+  50% { transform: translate3d(12%, 10%, 0) rotate(-16deg) scale(0.9); }
+}
+.haze {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  will-change: transform;
+}
+.haze-a { animation: haze-a 14s ease-in-out infinite; }
+.haze-b { animation: haze-b 18s ease-in-out infinite; }
+
+/* Slow breathing glow behind the portrait */
+@keyframes breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.06); }
+}
+.breathe {
+  animation: breathe 7s ease-in-out infinite;
+}
+
+/* Headline lines rise in */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(0.4em); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.rise {
+  opacity: 0;
+  animation: rise 900ms cubic-bezier(0.2, 0.7, 0.1, 1) forwards;
+}
+
+/* Drifting sparks */
+@keyframes drift {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate3d(var(--dx, 20px), -160px, 0); opacity: 0; }
+}
+.spark {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: #e9d5ff;
+  box-shadow: 0 0 6px 1px rgba(192, 132, 252, 0.9);
+  animation: drift var(--t, 6s) linear infinite;
+  animation-delay: var(--d, 0s);
+}
+
+/* Blinking terminal cursor */
+@keyframes blink {
+  50% { opacity: 0; }
+}
+.cursor {
+  animation: blink 1.1s steps(1) infinite;
+}
+
+:focus-visible {
+  outline: 2px solid var(--glow);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .breathe, .spark, .cursor, .cta, .sheen, .haze-a, .haze-b { animation: none; }
+  .spark { display: none; }
+  .rise { animation: none; opacity: 1; }
 }

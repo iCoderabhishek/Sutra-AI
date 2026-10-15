@@ -24,6 +24,18 @@ jobs:
         working-directory: apps/cli
         run: go test ./...
 
+      # The backend URL is compiled into the binary. It is public, so a repo
+      # variable can override it, but releases fall back to the hosted API
+      # instead of localhost, which would break every installed copy.
+      - name: Resolve backend URL
+        env:
+          URL: ${{ vars.SUTRA_BACKEND_URL || 'https://api.sutraai.0bhishek.com' }}
+        run: |
+          case "$URL" in
+            https://*) echo "SUTRA_BACKEND_URL=$URL" >> "$GITHUB_ENV"; echo "Backend: $URL" ;;
+            *) echo "SUTRA_BACKEND_URL must be an https URL, got: $URL" >&2; exit 1 ;;
+          esac
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -32,4 +44,3 @@ jobs:
           workdir: apps/cli
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SUTRA_BACKEND_URL: ${{ vars.SUTRA_BACKEND_URL }}
