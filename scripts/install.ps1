@@ -13,7 +13,44 @@ $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
     default { throw "Unsupported architecture: $env:PROCESSOR_ARCHITECTURE" }
 }
 
-$release = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'sutra-installer' }
+# Older Windows PowerShell may default to TLS 1.0, which GitHub rejects.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+# Download with visible progress and timeouts so a stalled connection fails
+# instead of hanging forever.
+#   connect: give up if the server doesn't answer in 15s
+#   stall:   abort if speed stays under 1 KB/s for 30s
+#   total:   abort after 5 minutes no matter what
+function Get-File([string]$Url, [string]$OutFile) {
+    $curl = Get-Command curl.exe -CommandType Application -ErrorAction SilentlyContinue
+    if ($curl) {
+        # curl.exe ships with Windows 10 1803+; its progress bar is accurate and cheap.
+        & $curl.Source --fail --location --progress-bar --retry 2 `
+            --connect-timeout 15 --speed-limit 1024 --speed-time 30 --max-time 300 `
+            --user-agent 'sutra-installer' --output $OutFile $Url
+        if ($LASTEXITCODE -ne 0) {
+            throw "Download failed or timed out (curl exit $LASTEXITCODE): $Url"
+        }
+        return
+    }
+
+    # Fallback: show PowerShell's own progress bar for this download only.
+    $old = $ProgressPreference
+    $ProgressPreference = 'Continue'
+    try {
+        Invoke-WebRequest $Url -OutFile $OutFile -UseBasicParsing -TimeoutSec 300 `
+            -Headers @{ 'User-Agent' = 'sutra-installer' }
+    }
+    catch {
+        throw "Download failed or timed out: $Url ($($_.Exception.Message))"
+    }
+    finally {
+        $ProgressPreference = $old
+    }
+}
+
+$release = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest" `
+    -Headers @{ 'User-Agent' = 'sutra-installer' } -UseBasicParsing -TimeoutSec 30
 $tag = $release.tag_name
 $version = $tag.TrimStart('v')
 $archive = "sutra_${version}_windows_${arch}.zip"
@@ -23,8 +60,8 @@ $tmp = Join-Path ([IO.Path]::GetTempPath()) ("sutra-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $tmp | Out-Null
 try {
     Write-Host "Downloading sutra $tag (windows/$arch)..."
-    Invoke-WebRequest "$base/$archive" -OutFile (Join-Path $tmp $archive)
-    Invoke-WebRequest "$base/checksums.txt" -OutFile (Join-Path $tmp 'checksums.txt')
+    Get-File "$base/$archive" (Join-Path $tmp $archive)
+    Get-File "$base/checksums.txt" (Join-Path $tmp 'checksums.txt')
 
     # Verify the archive against the published checksums.
     $line = Get-Content (Join-Path $tmp 'checksums.txt') | Where-Object { $_ -match " $([regex]::Escape($archive))$" }
