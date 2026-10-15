@@ -16,6 +16,22 @@
 
 Scheduled AI agents you run from the terminal. Describe a job once, like "check this pricing page every morning", and Sutra runs it on a cron, streams each step live, remembers the last run, and alerts you on Telegram when something changes.
 
+## Install
+
+**macOS / Linux**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/HEAD/scripts/install.sh | sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+irm https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/HEAD/scripts/install.ps1 | iex
+```
+
+Then run `sutra`. More options in [Install the CLI](#install-the-cli).
+
 I will add demo here ...
 
 ## Links
@@ -49,20 +65,7 @@ I wanted to build an agent as a full product, not a script on top of a framework
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    CLI[Go terminal UI] -->|REST + SSE| API[Express API]
-    API --> PG[(PostgreSQL)]
-    API -->|jobs| Q[(Redis / BullMQ)]
-    Cron[Cron scheduler] --> Q
-    Q --> W[Worker]
-    W -->|HTTP + shared secret| RT[FastAPI runtime]
-    RT --> Loop[ReAct loop]
-    Loop <-->|tool calling| LLM[OpenRouter]
-    Loop --> Tools[Tools]
-    Loop -->|events| RS[(Redis Streams)]
-    RS --> W
-```
+![Sutra AI system architecture](assets/diagram/Sutra%20AI%20System%20Architecture%20Diagram.png)
 
 1. A cron or manual trigger puts a job on BullMQ.
 2. The worker checks credits and calls the private Python runtime with a shared secret.
@@ -104,7 +107,25 @@ All 25 code-level tests pass. In the real-model eval, the agent refused an unsaf
 
 ## Install the CLI
 
-Download the archive for your OS from [Releases](https://github.com/iCoderabhishek/Sutra-AI/releases), unzip it, and run `sutra`. Builds are available for Linux, macOS and Windows, on amd64 and arm64.
+**macOS / Linux**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/HEAD/scripts/install.sh | sh
+```
+
+**Windows (PowerShell)**
+
+```powershell
+irm https://raw.githubusercontent.com/iCoderabhishek/Sutra-AI/HEAD/scripts/install.ps1 | iex
+```
+
+Then run:
+
+```sh
+sutra
+```
+
+The script picks the latest release for your OS and CPU, checks it against `checksums.txt`, and installs `sutra` to `~/.local/bin` (Windows: `%LOCALAPPDATA%\sutra\bin`, added to your PATH). Set `SUTRA_INSTALL_DIR` to install somewhere else.
 
 Or with Go:
 
